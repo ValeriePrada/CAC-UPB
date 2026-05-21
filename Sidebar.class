@@ -1,0 +1,8 @@
+package co.edu.upb.proyecto.datastructures.model.stack;
+
+import co.edu.upb.proyecto.datastructures.model.collection.AbstractCollection;
+
+public abstract class AbstractStack<E> extends AbstractCollection<E> implements Stack<E> {
+    
+}
+

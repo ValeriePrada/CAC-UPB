@@ -1,0 +1,273 @@
+package co.edu.upb.proyecto.server.rmi;
+
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.util.Date;
+import co.edu.upb.proyecto.model.*;
+import co.edu.upb.proyecto.service.SistemaCAC;
+
+/**
+ * Interfaz remota del sistema CAC
+ * 
+ * Define todos los métodos que pueden ser invocados remotamente por los clientes mediante Java RMI
+ * 
+ * Esta interfaz funciona como el contrato entre cliente y servidor, permitiendo operaciones relacionadas con
+ * - autenticación
+ * - gestión de clientes
+ * - citas
+ * - tickets
+ * - turnos
+ * - reportes
+ * - bancos de atención
+ * 
+ * Todos los métodos lanzan RemoteException porque son ejecutados a través de comunicación remota
+*/
+public interface SistemaCACRemote extends Remote {
+
+    /**
+     * Permite autenticar un usuario en el sistema utilizando username y contraseña
+     * 
+     * Si las credenciales son correctas retorna el usuario, en caso contrario retorna null
+     *
+     * @param user nombre de usuario
+     * @param pass contraseña del usuario
+     * @return Usuario autenticado o null
+     * @throws RemoteException error de comunicación remota
+    */
+    Usuario login(String user, String pass) throws RemoteException;
+
+    /**
+     * Registra un nuevo usuario cliente en el sistema
+     * 
+     * Crea un cliente con los datos recibidos y lo almacena en la estructura de usuarios
+     *
+     * @param id identificador del cliente
+     * @param user nombre de usuario
+     * @param pass contraseña
+     * @param nombre nombre completo del cliente
+     * @param edad edad del cliente
+     * @param premium indica si posee membresía premium
+     * @return true si el registro fue exitoso
+     * @throws RemoteException error remoto
+    */
+    boolean registrarUsuarioCliente(int id, String user, String pass, String nombre, int edad, boolean premium) throws RemoteException;
+
+    /**
+     * Busca un cliente utilizando su id
+     *
+     * @param id identificador del cliente
+     * @return Cliente encontrado o null
+     * @throws RemoteException error remoto
+    */
+    Cliente buscarCliente(int id) throws RemoteException;
+
+    /**
+     * Crea una nueva cita en el sistema
+     *
+     * @param cita objeto cita a registrar
+     * @return true si la cita fue creada correctamente
+     * @throws RemoteException error remoto
+    */
+    boolean crearCita(Cita cita) throws RemoteException;
+
+    /**
+     * Lista todas las citas de un cliente
+     *
+     * @param idCliente identificador del cliente
+     * @return texto con la información de las citas
+     * @throws RemoteException error remoto
+    */
+    String listarMisCitas(int idCliente) throws RemoteException;
+
+    /**
+     * Lista todas las citas registradas en el sistema
+     *
+     * @return texto con todas las citas
+     * @throws RemoteException error remoto
+    */
+    String listarTodasLasCitas() throws RemoteException;
+
+    /**
+     * Busca una cita y devuelve su información en formato texto
+     *
+     * @param id identificador de la cita
+     * @return información textual de la cita
+     * @throws RemoteException error remoto
+    */
+    String buscarCitaTexto(int id) throws RemoteException;
+
+    /**
+     * Busca una cita con su id
+     *
+     * @param id identificador de la cita
+     * @return cita encontrada o null
+     * @throws RemoteException error remoto
+    */
+    Cita buscarCitaPorId(int id) throws RemoteException;
+
+    /**
+     * Permite editar la fecha de una cita desde el cliente
+     *
+     * @param idCita identificador de la cita
+     * @param nuevaFecha nueva fecha en texto
+     * @return true si la edición fue exitosa
+     * @throws RemoteException error remoto
+    */
+    boolean editarCitaCliente(int idCita, String nuevaFecha) throws RemoteException;
+
+    /**
+     * Cancela una cita del sistema
+     *
+     * @param id identificador de la cita
+     * @throws RemoteException error remoto
+    */
+    void cancelarCita(int id) throws RemoteException;
+
+    /**
+     * Permite a un cliente cancelar su propia cita
+     *
+     * @param id identificador de la cita
+     * @return true si la cita fue cancelada
+     * @throws RemoteException error remoto
+    */
+    boolean cancelarCitaCliente(int id) throws RemoteException;
+
+    /**
+     * Edita la fecha de una cita
+     *
+     * @param id identificador de la cita
+     * @param fecha nueva fecha
+     * @throws RemoteException error remoto
+    */
+    void editarCita(int id, Date fecha) throws RemoteException;
+
+    /**
+     * Genera un ticket para un cliente y retorna el resultado junto con un mensaje
+     *
+     * @param idCliente identificador del cliente
+     * @return objeto ResultadoTicket
+     * @throws RemoteException error remoto
+    */
+    SistemaCAC.ResultadoTicket generarTicketConMensaje(int idCliente) throws RemoteException;
+
+    /**
+     * Muestra la cola actual de turnos
+     *
+     * @return información de la cola
+     * @throws RemoteException error remoto
+    */
+    String verCola() throws RemoteException;
+
+    /**
+     * Retorna la posición de un ticket en la cola
+     *
+     * @param idTicket identificador del ticket
+     * @return posición del ticket
+     * @throws RemoteException error remoto
+    */
+    String verPosicion(int idTicket) throws RemoteException;
+
+    /**
+     * Atiende el siguiente turno disponible
+     *
+     * @return información del turno atendido
+     * @throws RemoteException error remoto
+    */
+    String atenderSiguienteTexto() throws RemoteException;
+
+    /**
+     * Muestra el turno actual en atención
+     *
+     * @return información del turno actual
+     * @throws RemoteException error remoto
+    */
+    String verTurnoActual() throws RemoteException;
+
+    /**
+     * Cambia la membresía premium de un cliente
+     *
+     * @param idCliente identificador del cliente
+     * @param premium nuevo estado premium
+     * @return true si el cambio fue exitoso
+     * @throws RemoteException error remoto
+    */
+    boolean cambiarMembresia(int idCliente, boolean premium) throws RemoteException;
+
+    /**
+     * Finaliza una cita utilizando su id
+     *
+     * @param id identificador de la cita
+     * @return true si la cita fue atendida
+     * @throws RemoteException error remoto
+    */
+    boolean atenderCitaPorId(int id) throws RemoteException;
+
+    /**
+     * Genera un reporte de citas no asistidas
+     *
+     * @return reporte en formato texto
+     * @throws RemoteException error remoto
+    */
+    String reporteNoAsistidos() throws RemoteException;
+
+    /**
+     * Registra un nuevo administrador en el sistema
+     *
+     * @param id identificador del administrador
+     * @param user username del administrador
+     * @param pass contraseña
+     * @return true si el registro fue exitoso
+     * @throws RemoteException error remoto
+    */
+    boolean registrarAdmin(int id, String user, String pass) throws RemoteException;
+
+    /**
+     * Muestra información importante sobre las citas
+     *
+     * @return texto informativo
+     * @throws RemoteException error remoto
+    */
+    String infoCitas() throws RemoteException;
+
+    /**
+     * Muestra el turno actual de la cola global
+     *
+     * @return información del turno global
+     * @throws RemoteException error remoto
+    */
+    String verTurnoActualGlobal() throws RemoteException;
+
+    /**
+     * Muestra todos los turnos de la cola global
+     *
+     * @return texto con la cola global
+     * @throws RemoteException error remoto
+    */
+    String verColaGlobal() throws RemoteException;
+
+    /**
+     * Lista los bancos disponibles del sistema
+     *
+     * @return información de los bancos
+     * @throws RemoteException error remoto
+    */
+    String listarBancosDisponibles() throws RemoteException;
+
+    /**
+     * Atiende un turno asignándolo a un banco específico
+     *
+     * @param idBanco identificador del banco
+     * @return resultado de la atención
+     * @throws RemoteException error remoto
+    */
+    String atenderTurnoConBanco(int idBanco) throws RemoteException;
+    
+    /**
+     * Finaliza el turno asociado a una cita
+     *
+     * @param idCita identificador de la cita
+     * @return mensaje de resultado
+     * @throws RemoteException error remoto
+    */
+    String finalizarTurnoPorCita(int idCita) throws RemoteException;
+}

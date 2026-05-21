@@ -1,0 +1,78 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Representa un usuario administrador dentro del sistema CAC
+ * 
+ * La clase Administrador hereda de Usuario y posee permisos
+ * especiales para gestionar citas, clientes y reportes
+ * del sistema.
+*/
+
+public class Administrador extends Usuario {
+
+
+    /**
+     * Constructor de la clase Administrador
+     * 
+     * Inicializa un administrador con rol ADMIN
+     * utilizando la información básica del usuario
+     *
+     * @param id identificador único del administrador
+     * @param username nombre de usuario utilizado para iniciar sesión
+     * @param password contraseña del administrador
+     * @param edad edad del administrador
+     * @param premium indica si posee membresía premium, en este caso siempre es false para administradores
+    */
+    public Administrador(int id, String username, String password, int edad, boolean premium) {
+        super(id, username, password, Rol.ADMIN, edad, false);
+    }
+
+     /**
+     * Indica si el administrador tiene permisos
+     * para gestionar citas
+     *
+     * @return true, ya que un administrador puede
+     *         administrar citas
+    */
+    public boolean puedeGestionarCitas() {
+        return true;
+    }
+
+     /**
+     * Indica si el administrador tiene permisos
+     * para gestionar clientes
+     *
+     * @return true, ya que un administrador puede
+     *         administrar clientes
+    */
+    public boolean puedeGestionarClientes() {
+        return true;
+    }
+
+     /**
+     * Indica si el administrador tiene permisos
+     * para ver reportes del sistema
+     *
+     * @return true, ya que un administrador puede
+     *         acceder a los reportes
+    */
+    public boolean puedeVerReportes() {
+        return true;
+    }
+
+    /**
+     * Retorna una representación textual del administrador
+     * 
+     * Tiene información como el id
+     * y nombre de usuario
+     *
+     * @return cadena con la información del administrador
+    */
+    @Override
+    public String toString() {
+        return "Administrador{" +
+                "id=" + getId() +
+                ", nombre='" + getUsername() + '\'' +
+                '}';
+    }
+}

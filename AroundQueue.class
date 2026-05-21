@@ -1,0 +1,147 @@
+package co.edu.upb.proyecto.model;
+import java.io.Serializable;
+import java.util.Date;
+
+/**
+ * Clase que representa un ticket del sistema de turnos
+ * 
+ * Cada ticket tiene información como
+ * - número de turno
+ * - prioridad
+ * - cliente
+ * - estado
+ * - fecha de emisión
+*/
+public class Ticket implements Serializable{
+
+    /**
+     * Identificador del ticket
+    */
+    private int idTicket;
+
+    /**
+     * Número del ticket
+    */
+    private String numero;
+
+    /**
+     * Fecha y hora en la que fue generado el ticket
+    */
+    private Date fechaEmision;
+
+    /**
+     * Estado del ticket
+    */
+    private EstadoTicket estado;
+
+    /**
+     * Nivel de prioridad asignado al ticket
+    */
+    private Prioridad prioridad;
+
+    /**
+     * Cliente dueño del ticket
+    */
+    private Cliente cliente;
+
+    /**
+     * Constructor que inicializa toda la información del ticket
+     * 
+     * @param idTicket Identificador del ticket
+     * @param numero Número del ticket
+     * @param fechaEmision Fecha de generación
+     * @param estado Estado actual
+     * @param prioridad Prioridad asignada
+     * @param cliente Cliente asociado
+    */
+    public Ticket(int idTicket, String numero, Date fechaEmision, EstadoTicket estado, Prioridad prioridad, Cliente cliente) {
+
+        this.idTicket = idTicket;
+        this.numero = numero;
+        this.fechaEmision = fechaEmision;
+        this.estado = estado;
+        this.prioridad = prioridad;
+        this.cliente = cliente;
+    }
+
+    public int getIdTicket() {
+        return idTicket;
+    }
+
+    public void setIdTicket(int idTicket) {
+        this.idTicket = idTicket;
+    }
+
+    public String getNumero() {
+        return numero;
+    }
+
+    public void setNumero(String numero) {
+        this.numero = numero;
+    }
+
+    public Date getFechaEmision() {
+        return fechaEmision;
+    }
+
+    public void setFechaEmision(Date fechaEmision) {
+        this.fechaEmision = fechaEmision;
+    }
+
+    public EstadoTicket getEstado() {
+        return estado;
+    }
+
+    public void setEstado(EstadoTicket estado) {
+        this.estado = estado;
+    }
+
+    public Prioridad getPrioridad() {
+        return prioridad;
+    }
+
+    public void setPrioridad(Prioridad prioridad) {
+        this.prioridad = prioridad;
+    }
+
+    public Cliente getCliente() {
+        return cliente;
+    }
+
+    public void setCliente(Cliente cliente) {
+        this.cliente = cliente;
+    }
+
+    /**
+     * Retorna una representación textual del ticket
+     * 
+     * 
+     * @return Información del ticket
+    */
+    public String toString() {
+        return "Ticket{" +
+                "id=" + idTicket +
+                ", numero='" + numero + '\'' +
+                ", prioridad=" + prioridad +
+                ", cliente=" + (cliente != null ? cliente.getNombre() : "null") +
+                '}';
+    }
+
+    /**
+     * Verifica si el ticket esta activo.
+     * 
+     * @return true si el estado es ACTIVO
+    */
+    public boolean estaActivo() {
+        return estado == EstadoTicket.ACTIVO;
+    }
+
+    /**
+     * Verifica si el ticket esta vencido
+     * 
+     * @return true si el estado es VENCIDO
+    */
+    public boolean estaVencido() {
+        return estado == EstadoTicket.VENCIDO;
+    }
+}

@@ -1,0 +1,186 @@
+package co.edu.upb.proyecto.model;
+
+import java.io.Serializable;
+
+/**
+ * Representa un banco de atención dentro del sistema CAC
+ * 
+ * Cada banco posee un identificador, nombre, estado,
+ * capacidad máxima y disponibilidad para atender clientes
+*/
+
+public class Banco implements Serializable{
+
+    /**
+     * Identificador único del banco
+    */
+    private int idBanco;
+
+     /**
+     * Nombre asignado al banco
+    */
+    private String nombre;
+
+    /**
+     * Indica si el banco se encuentra activo
+    */  
+    private boolean activo;
+
+    /**
+     * Capacidad máxima de atención del banco
+    */
+    private int capacidad;
+
+    /**
+     * Indica si el banco actualmente está ocupado
+     * atendiendo un cliente
+    */
+    private boolean ocupado;
+
+    /**
+     * Constructor de la clase Banco
+     * 
+     * Inicializa la información básica del banco
+     * y establece inicialmente el estado ocupado
+     * como falso
+     *
+     * @param idBanco identificador único del banco
+     * @param nombre nombre del banco
+     * @param activo indica si el banco inicia activo
+     * @param capacidad capacidad máxima del banco
+    */
+    public Banco(int idBanco, String nombre, boolean activo, int capacidad) {
+        this.idBanco = idBanco;
+        this.setNombre(nombre);
+        this.definirCapacidad(capacidad);
+        this.activo = activo;
+        this.ocupado = false;
+    }
+
+     /**
+     * retorna el identificador del banco
+     *
+     * @return identificador del banco
+    */
+    public int getIdBanco() {
+        return idBanco;
+    }
+
+    /**
+     * Modifica el identificador del banco
+     *
+     * @param idBanco nuevo identificador
+    */
+    public void setIdBanco(int idBanco) {
+        this.idBanco = idBanco;
+    }
+
+    /**
+     * retorna el nombre del banco
+     *
+     * @return nombre del banco
+    */
+    public String getNombre() {
+        return nombre;
+    }
+
+    /**
+     * Modifica el nombre del banco
+     * 
+     * El nombre no puede estar vacío
+     *
+     * @param nombre nuevo nombre del banco
+    */
+    public void setNombre(String nombre) {
+        if (nombre == null || nombre.isEmpty()) {
+            throw new IllegalArgumentException("El nombre no puede estar vacío");
+        }
+        this.nombre = nombre;
+    }
+
+    /**
+     * Indica si el banco se encuentra activo
+     *
+     * @return true si el banco está activo
+    */
+    public boolean isActivo() {
+        return activo;
+    }
+
+    /**
+     * retorna la capacidad máxima del banco
+     *
+     * @return capacidad del banco.
+    */
+    public int getCapacidad() {
+        return capacidad;
+    }
+
+    /**
+     * Activa el banco para permitir atención
+    */
+    public void activar() {
+        this.activo = true;
+    }
+
+    /**
+     * Desactiva el banco para dejar de permitir atención
+    */
+    public void desactivar() {
+        this.activo = false;
+    }
+
+    /**
+     * Indica si el banco se encuentra ocupado
+     *
+     * @return true si el banco está ocupado
+    */
+    public boolean isOcupado() {
+        return ocupado;
+    }
+
+    /**
+     * Cambia el estado de ocupación del banco
+     *
+     * @param ocupado nuevo estado de ocupación
+    */
+    public void setOcupado(boolean ocupado) {
+        this.ocupado = ocupado;
+    }
+
+    /**
+     * Define la capacidad máxima del banco
+     * 
+     * La capacidad debe ser mayor a cero
+     *
+     * @param capacidad nueva capacidad permitida
+    */
+    public void definirCapacidad(int capacidad) {
+        if (capacidad <= 0) {
+            throw new IllegalArgumentException("La capacidad debe ser mayor a 0");
+        }
+        this.capacidad = capacidad;
+    }
+
+    /**
+     * retorna el estado del banco en formato texto
+     *
+     * @return "Activo" o "Inactivo" 
+    */
+    public String getEstadoTexto() {
+        if (activo) {
+            return "Activo";
+        } else {
+            return "Inactivo";
+        }
+    }
+
+    /**
+     * Verifica si la información del banco es válida
+     *
+     * @return true si el banco tiene nombre válido y capacidad mayor a cero
+    */
+    public boolean esValido() {
+        return nombre != null && !nombre.isEmpty() && capacidad > 0;
+    }
+}

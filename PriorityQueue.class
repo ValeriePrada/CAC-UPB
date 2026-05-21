@@ -1,0 +1,24 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Enumeración que representa los niveles de prioridad de los tickets
+ * 
+ * Estas prioridades determinan el orden de atención
+*/
+public enum Prioridad {
+
+    /**
+     * Prioridad más alta, se atiende primero
+    */
+    ALTA,
+
+    /**
+     * Prioridad intermedia, se atiende después de los tickets de alta prioridad
+    */
+    MEDIA,
+
+    /**
+     * Prioridad más baja, se atiende después de los tickets de alta y media prioridad
+    */
+    BAJA
+}

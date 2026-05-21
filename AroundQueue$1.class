@@ -1,0 +1,21 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Enumeración que representa los roles del sistema
+*/
+public enum Rol {
+
+    /**
+     * Usuario administrador del sistema
+     * 
+     * Tiene permisos de gestión y control
+    */
+    ADMIN,
+
+    /**
+     * Usuario cliente
+     * 
+     * Puede gestionar sus citas y turnos
+    */
+    CLIENTE
+}

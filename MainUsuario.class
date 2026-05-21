@@ -1,0 +1,18 @@
+package co.edu.upb.proyecto.datastructures.model.list;
+
+import co.edu.upb.proyecto.datastructures.model.collection.AbstractCollection;
+
+public abstract class AbstractList<E> extends AbstractCollection<E> implements List<E> {
+    
+    protected int size;
+
+    public int size() {
+        return size;
+    }
+
+    public boolean isEmpty() {
+        return size == 0;
+
+    }
+    
+}
