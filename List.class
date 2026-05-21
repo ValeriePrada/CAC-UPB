@@ -1,0 +1,2229 @@
+package co.edu.upb.proyecto.service;
+
+import co.edu.upb.proyecto.model.*;
+import co.edu.upb.proyecto.util.ArchivoUtil;
+import co.edu.upb.proyecto.datastructures.app.linkedlist.singly.LinkedList;
+import co.edu.upb.proyecto.datastructures.app.linkedlist.doubly.DoublyLinkedList;
+import co.edu.upb.proyecto.server.security.Sesion;
+import co.edu.upb.proyecto.datastructures.app.priorityqueue.PriorityQueue;
+import co.edu.upb.proyecto.datastructures.model.iterator.Iterator;
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+/**
+ * Sistema principal del CAC (Centro de Atención al Cliente)
+ * 
+ * Esta clase administra:
+ * - Clientes
+ * - Usuarios
+ * - Citas
+ * - Tickets
+ * - Turnos
+ * - Bancos de atención
+ * - Colas de prioridad
+ * 
+ * Implementa la lógica principal del sistema utilizando
+ * estructuras de datos personalizadas como listas enlazadas
+ * y colas de prioridad.
+ * 
+ * @author Valerie Prada y Helen Barroso
+*/
+public class SistemaCAC implements CitaService, TicketService, Serializable {
+
+    /**
+     * Lista enlazada simple que almacena los clientes registrados.
+    */
+    private LinkedList<Cliente> clientes;
+
+    /**
+     * Lista doblemente enlazada que almacena las citas del sistema.
+    */
+    private DoublyLinkedList<Cita> citas;
+    
+    /**
+     * Arreglo de colas de turnos utilizadas para gestionar
+     * la atención de clientes según prioridad.
+    */
+    private ColaTurnos[] colas;
+
+    /**
+     * Lista enlazada simple que almacena los usuarios del sistema
+    */
+    private LinkedList<Usuario> usuarios;
+
+    /**
+     * Arreglo de bancos de atención disponibles en el sistema.
+    */
+    private Banco[] bancos;
+
+    /**
+     * Cola global de prioridad utilizada para organizar los turnos.
+    */
+    private PriorityQueue<Ticket> colaGlobal = new PriorityQueue<>(100);
+
+    /**
+     * Contador utilizado para generar IDs únicos de tickets.
+    */
+    private int contadorTickets = 1;
+
+    /**
+     * Índice utilizado para asignar bancos de forma rotativa.
+    */
+    private int indiceBanco = 0;
+
+    /**
+     * Lista de turnos que actualmente están siendo atendidos.
+    */
+    private LinkedList<Turno> turnosActivos = new LinkedList<>();
+
+    /**
+     * Constructor principal del sistema CAC
+     * 
+     * Inicializa las estructuras de datos necesarias
+     * y carga la información almacenada si se indica
+     * 
+     * @param cargarDatos true para cargar datos guardados
+     * false para iniciar un sistema limpio.
+    */
+    public SistemaCAC(boolean cargarDatos) {
+        clientes = new LinkedList<>();
+        citas = new DoublyLinkedList<>();
+        colas = new ColaTurnos[]{
+            new ColaTurnos(100),
+            new ColaTurnos(100),
+            new ColaTurnos(100)
+        };
+        usuarios = new LinkedList<>();
+
+        bancos = new Banco[]{
+            new Banco(1, "Banco 1", true, 1),
+            new Banco(2, "Banco 2", true, 1),
+            new Banco(3, "Banco 3", true, 1)
+        };
+
+        if (cargarDatos) {
+
+            cargarUsuarios(); 
+            cargarClientes();
+            cargarCitas();
+
+        } else {
+
+            usuarios.add(new Usuario(1, "admin", "123", Rol.ADMIN, 0, false));
+            guardarUsuarios();
+        }
+    }
+
+    /**
+     * Registra un nuevo administrador en el sistema
+     * 
+     * Solo puede ser ejecutado por usuarios con rol ADMIN
+     * 
+     * @param id identificador del administrador
+     * @param username nombre de usuario
+     * @param password contraseña
+     * @return true si el administrador fue registrado correctamente
+    */
+    public boolean registrarAdmin (int id, String username, String password)  {
+        if (!Sesion.isAdmin()) return false;
+
+        Usuario admin = new Usuario(id, username, password, Rol.ADMIN, 0, false);
+        usuarios.add(admin);
+
+        guardarUsuarios();
+
+        return true;
+    }
+
+    /**
+     * Registra un nuevo cliente en el sistema.
+     * 
+     * El cliente también es almacenado como usuario.
+     * 
+     * @param id identificador del cliente
+     * @param username nombre de usuario
+     * @param password contraseña
+     * @param nombre nombre del cliente
+     * @param edad edad del cliente
+     * @param premium indica si el cliente posee membresía premium
+     * @return true si el registro fue exitoso
+    */
+    public boolean registrarUsuarioCliente(int id, String username, String password, String nombre, int edad, boolean premium)  {
+
+        Cliente cliente = new Cliente(id, username, password, nombre, username, "", edad, premium, true);
+
+        usuarios.add(cliente);
+        clientes.add(cliente); 
+        guardarUsuarios(); 
+
+        return true;
+    }
+
+    /**
+     * Obtiene un banco disponible utilizando asignación rotativa
+     * 
+     * El índice avanza para equilibrar la carga entre los bancos
+     * 
+     * @return banco seleccionado para atención
+    */
+    private Banco obtenerBancoDisponible(){
+
+        Banco banco = bancos[indiceBanco];
+
+        indiceBanco = (indiceBanco + 1) % bancos.length;
+
+        return banco;
+    }
+
+    /**
+     * Guarda los usuarios registrados en un archivo JSON
+     * 
+     * Se almacenan administradores y clientes registrados en el sistema, incluyendo sus credenciales y roles
+    */
+    public void guardarUsuarios() {
+
+        String json = "[";
+        var it = usuarios.iterator();
+
+        while (it.hasNext()) {
+            Usuario u = it.next();
+
+            if (u != null) {
+                json += "{"
+                        + "\"id\":" + u.getId() + ","
+                        + "\"username\":\"" + u.getUsername() + "\","
+                        + "\"password\":\"" + u.getPassword() + "\","
+                        + "\"rol\":\"" + u.getRol() + "\""
+                        + "},";
+            }
+        }
+
+        json += "]";
+        ArchivoUtil.guardar("usuarios.json", json);
+    }
+
+    /**
+     * Carga los usuarios almacenados desde el archivo JSON
+     * 
+     * El sistema reconstruye los objetos Usuario y Cliente
+     * según la información almacenada, diferenciando entre administradores y 
+     * clientes para asignarles el rol correspondiente
+     * 
+    */
+    public void cargarUsuarios() {
+
+        String data = ArchivoUtil.leer("usuarios.json");
+
+        if (data == null || data.equals("")) return;
+
+        data = data.replace("[", "").replace("]", "");
+
+        String[] registros = data.split("},");
+
+        for (String r : registros) {
+
+            r = r.replace("{", "").replace("}", "");
+
+            String[] campos = r.split(",");
+
+            int id = 0;
+            String username = "";
+            String password = "";
+            Rol rol = null;
+
+            int edad = 0;              
+            boolean premium = false;  
+
+            for (String campo : campos) {
+
+                if (campo.contains("id")) {
+                    id = Integer.parseInt(campo.split(":")[1]);
+                }
+
+                if (campo.contains("username")) {
+                    username = campo.split(":")[1].replace("\"", "");
+                }
+
+                if (campo.contains("password")) {
+                    password = campo.split(":")[1].replace("\"", "");
+                }
+
+                if (campo.contains("rol")) {
+                    rol = Rol.valueOf(
+                            campo.split(":")[1].replace("\"", "")
+                    );
+                }
+
+                if (campo.contains("edad")) {
+                    edad = Integer.parseInt(campo.split(":")[1]);
+                }
+
+                if (campo.contains("premium")) {
+                    premium = Boolean.parseBoolean(campo.split(":")[1]);
+                }
+            }
+
+            if (rol == Rol.ADMIN) {
+                usuarios.add(new Usuario(id, username, password, rol, 0, false));
+            } else {
+                Cliente c = new Cliente(
+                    id,
+                    username,
+                    password,
+                    username,
+                    "",
+                    "",
+                    edad,   
+                    premium,  
+                    true
+                );
+
+                usuarios.add(c);
+                clientes.add(c);
+            }
+        }
+    }
+
+    /**
+     * Registra un cliente en el sistema
+     * 
+     * Antes del registro se validan los datos del cliente
+     * 
+     * @param cliente cliente a registrar
+    */
+    public void registrarCliente(Cliente cliente) {
+        if (!validarCliente(cliente)) {
+            System.out.println("Datos inválidos");
+            return;
+        }
+
+        clientes.add(cliente);
+        guardarClientes();
+    }
+
+    /**
+     * Busca un cliente por su id
+     * 
+     * @param id identificador del cliente
+     * @return cliente encontrado o null si no existe
+    */
+    public Cliente buscarCliente(int id) {
+        var it = clientes.iterator();
+
+        while (it.hasNext()) {
+            Cliente c = it.next();
+            if (c != null && c.getId() == id) return c;
+        }
+        return null;
+    }
+
+    /**
+     * Valida los datos de un cliente
+     * 
+     * Validaciones
+     * - El cliente no debe ser null
+     * - El nombre no puede estar vacio
+     * - La edad debe estar entre 0 y 120
+     * 
+     * @param c cliente a validar
+     * @return true si los datos son válidos
+    */
+    public boolean validarCliente(Cliente c) {
+        if (c == null) return false;
+        if (c.getNombre() == null || c.getNombre().isEmpty()) return false;
+        if (c.getEdad() < 0 || c.getEdad() > 120) return false;
+        return true;
+    }
+
+    /**
+     * Crea una nueva cita en el sistema
+     * 
+     * La cita es almacenada y despues es guardada
+     * en el archivo de JSON
+     * 
+     * @param cita cita a registrar
+     * @return true si la cita fue creada correctamente
+    */
+    public boolean crearCita(Cita cita) {
+        citas.add(cita);
+        guardarCitas();
+        return true;
+    }
+
+    /**
+     * Cancela una cita del sistema segun su ID
+     * 
+     * La cita es eliminada de la lista de citas
+     * 
+     * @param idCita identificador de la cita
+     * @return true si la cita fue eliminada correctamente
+    */
+    public boolean cancelarCita(int idCita)  {
+
+        DoublyLinkedList<Cita> nueva = new DoublyLinkedList<>();
+        var it = citas.iterator();
+
+        boolean eliminado = false;
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getIdCita() != idCita) {
+                nueva.add(c);
+            } else {
+                eliminado = true;
+            }
+        }
+
+        citas = nueva;
+        guardarCitas();
+
+        return eliminado;
+    }
+
+    /**
+     * Permite al cliente cancelar una cita propia
+     * 
+     * Solo puede cancelar citas que sean propias del cliente
+     * 
+     * @param idCita identificador de la cita
+     * @return true si la cita fue cancelada correctamente
+    */
+    public boolean cancelarMiCita(int idCita) {
+
+        if (!Sesion.isLogged()) return false;
+
+        DoublyLinkedList<Cita> nueva = new DoublyLinkedList<>();
+        var it = citas.iterator();
+
+        boolean eliminado = false;
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null &&
+                c.getIdCita() == idCita &&
+                c.getCliente().getId() == Sesion.getUsuario().getId()) {
+
+                eliminado = true; 
+            } else {
+                nueva.add(c);
+            }
+        }
+
+        citas = nueva;
+        guardarCitas();
+
+        return eliminado;
+    }
+
+    /**
+     * Busca una cita asociada de un cliente especifico
+     * 
+     * El método recorre toda la lista de citas buscando
+     * coincidencias con el ID del cliente recibido
+     * 
+     * Si encuentra una cita ACTIVA, la retorna
+     * ya que es la más importante para las operaciones
+     * de generación de tickets y atención
+     * 
+     * Si no existe una cita activa, retorna la última cita
+     * encontrada perteneciente al cliente.
+     * 
+     * @param cliente cliente del cual se desea buscar la cita
+     * @return cita encontrada o null si el cliente no posee citas
+    */
+    public Cita buscarCitaCliente(Cliente cliente) {
+        var it = citas.iterator();
+        Cita citaEncontrada = null;
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getCliente().getId() == cliente.getId()) {
+                if (c.getEstado() == EstadoCita.ACTIVA) {
+                    return c; 
+                }
+                citaEncontrada = c;
+            }
+        }
+        return citaEncontrada;
+    }
+
+    /**
+     * Retorna la lista completa de citas almacenadas
+     * en el sistema
+     * 
+     * Las citas son gestionadas mediante una lista
+     * doblemente enlazada para facilitar recorridos
+     * y operaciones de modificación
+     * 
+     * @return lista doblemente enlazada de citas
+    */
+    public DoublyLinkedList<Cita> listarCitas() {
+        return citas;
+    }
+
+    /**
+     * Edita la fecha de una cita específica
+     * 
+     * El sistema recorre la lista de citas buscando
+     * coincidencia con el ID recibido y cuando encuentra
+     * la cita correspondiente, actualiza su fecha
+     * 
+     * Después de realizar la modificación, los datos
+     * son guardados nuevamente en el archivo JSON
+     * 
+     * @param idCita identificador de la cita a editar
+     * @param nuevaFecha nueva fecha asignada a la cita
+    */
+    public void editarCita(int idCita, Date nuevaFecha) {
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getIdCita() == idCita) {
+                c.setFecha(nuevaFecha);
+            }
+        }
+        guardarCitas();
+    }
+
+    /**
+     * Calcula la prioridad de atención de un cliente
+     * 
+     * Reglas
+     * - ALTA - cliente premium y mayor o igual a 60 años
+     * - MEDIA - cliente premium o mayor o igual a 60 años
+     * - BAJA - cliente estándar
+     * 
+     * @param cliente cliente a evaluar
+     * @return prioridad asignada al cliente
+    */
+    private Prioridad calcularPrioridad(Cliente cliente) {
+
+        if (cliente.isPremium() && cliente.getEdad() >= 60) {
+            return Prioridad.ALTA; 
+        }
+
+        if (cliente.isPremium()) {
+            return Prioridad.MEDIA;
+        }
+
+        if (cliente.getEdad() >= 60) {
+            return Prioridad.MEDIA;
+        }
+
+        return Prioridad.BAJA;
+    }
+
+    /**
+     * Cambia el estado de membresía premium de un cliente
+     * 
+     * Solo los administradores autenticados pueden hacerlo
+     * 
+     * El sistema busca el cliente mediante su ID y actualiza
+     * su membresía a premium o estándar según el valor recibido
+     * 
+     * La información se guarda nuevamente
+     * en el archivo de clientes
+     * 
+     * @param idCliente identificador del cliente
+     * @param premium true para premium, false para estándar
+     * @return true si la membresía fue actualizada correctamente
+    */
+    public boolean cambiarMembresia(int idCliente, boolean premium) {
+
+        if (!Sesion.isAdmin()) return false;
+
+        Cliente c = buscarCliente(idCliente);
+
+        if (c == null) return false;
+
+        c.setPremium(premium);
+
+        guardarClientes();
+
+        return true;
+    }
+
+    /**
+     * Selecciona una cola de turnos para asignar
+     * un nuevo ticket
+     * 
+     * El sistema utiliza una distribución rotativa
+     * segun en el contador de tickets para balancear
+     * la carga entre las diferentes colas disponibles
+     * 
+     * @param cliente cliente que solicita el ticket
+     * @return cola seleccionada para el nuevo turno
+    */
+    private ColaTurnos seleccionarCola(Cliente cliente){
+
+        if (colas == null || colas.length == 0) {
+            return null;
+        }
+
+        int index = contadorTickets % colas.length;
+
+        return colas[index];
+    }
+
+    /**
+     * Busca la cita activa de un cliente
+     * 
+     * El método recorre todas las citas almacenadas
+     * verificando
+     * que pertenezcan al cliente
+     * que el estado sea ACTIVA
+     * 
+     * Esta validación es utilizada
+     * antes de permitir la generación de tickets
+     * 
+     * @param cliente cliente a consultar
+     * @return cita activa encontrada o null si no existe
+    */
+    private Cita buscarCitaActiva(Cliente cliente){
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null &&
+                c.getCliente().getId() == cliente.getId() &&
+                c.getEstado() == EstadoCita.ACTIVA) {
+
+                return c;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Clase auxiliar utilizada para retornar
+     * el resultado de la generación de tickets
+     * 
+     * Permite enviar
+     * el ticket generado
+     * un mensaje del resultado
+     * 
+     * Se utiliza para manejar errores y validaciones
+     * sin perder información del proceso
+    */
+    public class ResultadoTicket implements java.io.Serializable {
+        public Ticket ticket;
+        public String mensaje;
+
+        /**
+         * Constructor de la clase ResultadoTicket.
+         * 
+         * @param t ticket generado
+         * @param m mensaje descriptivo del resultado
+        */
+        public ResultadoTicket(Ticket t, String m){
+            this.ticket = t;
+            this.mensaje = m;
+        }
+    }
+
+    /**
+     * Genera un ticket para un cliente
+     * 
+     * Validaciones
+     * - El cliente debe existir
+     * - No debe tener tickets activos
+     * - No debe tener turnos en atención
+     * - Debe tener una cita activa
+     * - Solo puede generar ticket 10 minutos antes de la cita
+     * 
+     * El ticket se agrega a la cola global de prioridad
+     * 
+     * @param idCliente identificador del cliente
+     * @return resultado del proceso de generación del ticket
+    */
+    public ResultadoTicket generarTicketConMensaje(int idCliente) {
+
+        Cliente cliente = buscarCliente(idCliente);
+
+        if (cliente == null) {
+            return new ResultadoTicket(null, "Cliente no encontrado");
+        }
+
+        if (yaTieneTicketActivo(cliente) || tieneTurnoEnAtencion(cliente)) {
+            return new ResultadoTicket(null, "Ya tienes un turno en proceso (en espera o en atención)");
+        }
+
+        Cita cita = buscarCitaActiva(cliente);
+
+        if (cita == null) {
+            return new ResultadoTicket(null,
+                    "No tienes una cita ACTIVA registrada");
+        }
+
+        Date ahora = new Date();
+
+        long diff = cita.getFecha().getTime() - ahora.getTime();
+
+        long diezMin = 10 * 60 * 1000;
+        long margenDespues = 10 * 60 * 1000;
+
+        if (diff > diezMin) {
+            return new ResultadoTicket(null,
+                    "Solo puedes generar el ticket 10 minutos antes de tu cita");
+        }
+
+        if (diff < -margenDespues) {
+            cita.setEstado(EstadoCita.NO_ASISTIDA);
+            guardarCitas();
+
+            return new ResultadoTicket(null,
+                    "Tu cita ya venció");
+        }
+
+        Prioridad prioridad = calcularPrioridad(cliente);
+
+        Ticket ticket = new Ticket(
+                contadorTickets,
+                "T" + contadorTickets,
+                new Date(),
+                EstadoTicket.ACTIVO,
+                prioridad,
+                cliente
+        );
+
+        contadorTickets++;
+
+        ColaTurnos colaAsignada = seleccionarCola(cliente);
+        colaAsignada.encolarCliente(ticket);
+
+        encolarGlobal(ticket);
+
+        return new ResultadoTicket(ticket,
+                "Ticket generado correctamente");
+    }
+
+    /**
+     * Verifica si un cliente ya tiene un ticket activo
+     * dentro de las colas del sistema
+     * 
+     * El método recorre todas las colas de turnos
+     * buscando tickets activos asociados al cliente
+     * 
+     * Esto evita que un cliente genere
+     * múltiples turnos a la vez
+     * 
+     * @param cliente cliente a verificar
+     * @return true si el cliente ya tiene un ticket activo
+    */
+    private boolean yaTieneTicketActivo(Cliente cliente) {
+
+        for (ColaTurnos c : colas) {
+
+            var it = c.iterator();
+
+            while (it.hasNext()) {
+                Ticket t = it.next();
+
+                if (t != null &&
+                    t.getEstado() == EstadoTicket.ACTIVO &&
+                    t.getCliente().getId() == cliente.getId()) {
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Verifica si un cliente actualmente tiene
+     * un turno en estado EN_ATENCION
+     * 
+     * El sistema recorre la lista de turnos activos
+     * comparando el cliente asociado al ticket
+     * 
+     * Esta validación impide que un cliente genere
+     * nuevos tickets mientras esta siendo atendido
+     * 
+     * @param cliente cliente a validar
+     * @return true si el cliente tiene un turno en atención
+    */
+    private boolean tieneTurnoEnAtencion(Cliente cliente) {
+
+        var it = turnosActivos.iterator();
+
+        while (it.hasNext()) {
+            Turno turno = it.next();
+
+            if (turno != null &&
+                turno.getEstado() == EstadoTurno.EN_ATENCION &&
+                turno.getTicket().getCliente().getId() == cliente.getId()) {
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Actualiza el estado de las citas
+     * 
+     * Si la fecha de una cita ya paso y aun se encuentra
+     * en estado ACTIVA el sistema cambia su estado
+     * a NO_ASISTIDA
+     * 
+     * Esto permite mantener actualizado
+     * el historial de citas y reportes del sistema
+    */
+    public void actualizarEstadoCitas() {
+
+        Date ahora = new Date();
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c == null) continue;
+
+            if (c.getEstado() == EstadoCita.ACTIVA &&
+                ahora.after(c.getFecha())) {
+
+                c.setEstado(EstadoCita.NO_ASISTIDA);
+            }
+        }
+
+        guardarCitas();
+    }
+
+    /**
+     * Atiende el siguiente turno disponible
+     * de la cola global de prioridad
+     * 
+     * El sistema realiza las siguientes acciones
+     * - Obtiene el siguiente ticket prioritario
+     * - Marca el ticket como atendido
+     * - Asigna un banco disponible
+     * - Marca el banco como ocupado
+     * - Crea un nuevo turno en atención
+     * - Guarda el turno en la lista de turnos activos
+     * 
+     * @return turno creado o null si no hay clientes en espera
+    */
+    public Turno atenderSiguienteTurno() {
+
+        Ticket t = obtenerSiguienteTicketGlobal();
+
+        if (t == null) return null;
+
+        t.setEstado(EstadoTicket.ATENDIDO);
+
+        Banco banco = obtenerBancoDisponible();
+
+        if (banco == null || banco.isOcupado()) {
+            return null;
+        }
+
+        banco.setOcupado(true);
+
+        Turno turno = new Turno(
+                t.getIdTicket(),
+                t,
+                banco,
+                EstadoTurno.EN_ATENCION
+        );
+
+        turnosActivos.add(turno);
+
+        return turno;
+    }
+
+    /**
+     * Atiende el siguiente turno disponible usando un banco
+     * 
+     * El sistema valida
+     * que el banco exista
+     * que el banco no este ocupado
+     * que existan turnos en espera
+     * 
+     * @param idBanco identificador del banco
+     * @return mensaje con el resultado de la operación
+    */
+    public String atenderTurnoConBanco(int idBanco) {
+
+        Banco bancoSeleccionado = null;
+
+        for (Banco b : bancos) {
+            if (b.getIdBanco() == idBanco) {
+                bancoSeleccionado = b;
+                break;
+            }
+        }
+
+        if (bancoSeleccionado == null) {
+            return "Banco no existe";
+        }
+
+        if (bancoSeleccionado.isOcupado()) {
+            return "Banco en atención";
+        }
+
+        Ticket t = obtenerSiguienteTicketGlobal();
+
+        if (t == null) {
+            return "No hay clientes en espera";
+        }
+
+        t.setEstado(EstadoTicket.ATENDIDO);
+
+        bancoSeleccionado.setOcupado(true);
+
+        Turno turno = new Turno(
+                t.getIdTicket(),
+                t,
+                bancoSeleccionado,
+                EstadoTurno.EN_ATENCION
+        );
+
+        turnosActivos.add(turno);
+
+        return "Atendiendo:\n" +
+                "Cliente: " + t.getCliente().getNombre() +
+                "\nTicket: " + t.getIdTicket() +
+                "\nDirígete al Banco: " + bancoSeleccionado.getIdBanco();
+    }
+
+    /**
+     * Atiende el siguiente turno disponible y genera
+     * un mensaje para mostrar en la interfaz
+     * 
+     * El método utiliza la lógica de atención principal
+     * para obtener el siguiente turno prioritario
+     * 
+     * Si no existen clientes en espera, retorna un mensaje
+     * En caso contrario muestra
+     * - Nombre del cliente
+     * - Número del ticket
+     * - Banco asignado
+     * 
+     * @return mensaje con la información del turno atendido
+    */
+    public String atenderSiguienteTexto() {
+
+        Turno turno = atenderSiguienteTurno();
+
+        if (turno == null) {
+            return "No hay clientes en espera";
+        }
+
+        return "Atendiendo:\n" +
+                "Cliente: " + turno.getTicket().getCliente().getNombre() +
+                "\nTicket: " + turno.getTicket().getIdTicket() +
+                "\nDirígete al Banco: " + turno.getBanco().getIdBanco();
+    }
+
+    /**
+     * Genera un historial de citas finalizadas
+     * y citas no asistidas
+     * 
+     * El sistema recorre todas las citas almacenadas
+     * y solo agrega las que su estado sea
+     * - FINALIZADA
+     * - NO_ASISTIDA
+     * 
+     * Este método sirve para reportes administrativos
+     * y seguimiento historico de atención
+     * 
+     * @return texto con el historial de citas
+    */
+
+    public String historialCitas() {
+        String res = "";
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null &&
+                (c.getEstado() == EstadoCita.FINALIZADA ||
+                c.getEstado() == EstadoCita.NO_ASISTIDA)) {
+
+                res += c.getIdCita() + " - " + c.getEstado() + "\n";
+            }
+        }
+
+        return res;
+    }
+
+    /**
+     * Permite a un cliente consultar el turno actual
+     * en las colas del sistema
+     * 
+     * El sistema verifica si el cliente posee
+     * el siguiente ticket activo de atención
+     * 
+     * Si el ticket pertenece al cliente consultado,
+     * se muestra el mensaje
+     * "¡ES TU TURNO!"
+     * 
+     * En caso contrario, se informa cuál es el turno
+     * actual en atención.
+     * 
+     * @param idCliente identificador del cliente
+     * @return mensaje con el estado del turno actual
+    */
+    public String verTurnoActualCliente(int idCliente){
+
+        for (ColaTurnos c : colas) {
+
+            var it = c.iterator();
+
+            while (it.hasNext()) {
+                Ticket t = it.next();
+
+                if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                    if (t.getCliente().getId() == idCliente) {
+                        return "¡ES TU TURNO!";
+                    } else {
+                        return "Turno actual: " + t.getIdTicket();
+                    }
+                }
+            }
+        }
+
+        return "Sin turnos";
+    }
+
+    /**
+     * Marca una cita como FINALIZADA
+     * 
+     * Solo los administradores autenticados pueden hacerlo
+     * 
+     * El sistema busca la cita mediante su ID y
+     * si existe actualiza su estado a FINALIZADA
+     * 
+     * Y guarda nuevamente las citas
+     * en el archivo de JSON
+     * 
+     * @param idCita identificador de la cita
+     * @return true si la cita fue atendida correctamente
+    */
+    public boolean atenderCita(int idCita) {
+
+        if (!Sesion.isAdmin()) return false;
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getIdCita() == idCita) {
+
+                c.setEstado(EstadoCita.FINALIZADA);
+
+                guardarCitas();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Finaliza una cita validando
+     * que exista un ticket activo para ese cliente
+     * 
+     * El sistema verifica
+     * que la cita exista
+     * que la cita esté ACTIVA
+     * que el cliente tenga un ticket ACTIVO
+     * 
+     * Si todas las validaciones se cumplen,
+     * la cita cambia a estado FINALIZADA
+     * 
+     * Esto permite que solo puedan
+     * finalizarse citas atendidas.
+     * 
+     * @param idCita identificador de la cita
+     * @return true si la cita fue finalizada correctamente
+    */
+    public boolean atenderCitaPorId(int idCita) {
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getIdCita() == idCita) {
+
+                if (c.getEstado() != EstadoCita.ACTIVA) {
+                    return false;
+                }
+
+                boolean tieneTicket = false;
+
+                for (ColaTurnos cola : colas) {
+
+                    var itCola = cola.iterator();
+
+                    while (itCola.hasNext()) {
+                        Ticket t = itCola.next();
+
+                        if (t != null &&
+                            t.getEstado() == EstadoTicket.ACTIVO &&
+                            t.getCliente().getId() == c.getCliente().getId()) {
+
+                            tieneTicket = true;
+                            break;
+                        }
+                    }
+
+                    if (tieneTicket) break;
+                }
+
+                if (!tieneTicket) {
+                    return false;
+                }
+
+                c.setEstado(EstadoCita.FINALIZADA);
+                guardarCitas();
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Finaliza un turno en atención teniendo en cuenta el ID de una cita
+     * 
+     * también libera el banco correspondiente y actualiza
+     * el estado de la cita
+     * 
+     * @param idCita identificador de la cita
+     * @return mensaje indicando el resultado de la operación
+    */
+    public String finalizarTurnoPorCita(int idCita) {
+
+        if (turnosActivos.isEmpty()) {
+            return "No hay turnos en atención";
+        }
+
+        var it = turnosActivos.iterator();
+
+        while (it.hasNext()) {
+
+            Turno turno = it.next();
+
+            Cita cita = buscarCitaPorId(idCita);
+
+            if (cita != null &&
+                turno.getTicket().getCliente().getId() == cita.getCliente().getId()) {
+
+                if (cita.getEstado() != EstadoCita.ACTIVA) {
+                    return "La cita no está activa";
+                }
+
+                cita.setEstado(EstadoCita.FINALIZADA);
+                guardarCitas();
+
+                Banco banco = turno.getBanco();
+                if (banco != null) {
+                    banco.setOcupado(false);
+                }
+
+                turno.setEstado(EstadoTurno.FINALIZADO);
+
+                turnosActivos.remove(turno);
+
+                return "Turno finalizado correctamente";
+            }
+        }
+
+        return "No se encontró un turno activo para esa cita";
+    }
+
+    /**
+     * Muestra todos los tickets activos presentes
+     * en las colas de atención
+     * 
+     * El sistema recorre cada cola y construye
+     * un listado con
+     * posición del turno
+     * número del ticket
+     * prioridad asignada
+     * 
+     * @return listado de turnos en espera
+    */
+    public String verCola() {
+
+        StringBuilder resultado = new StringBuilder();
+        int pos = 1;
+
+        for (ColaTurnos c : colas) {
+
+            var it = c.iterator();
+
+            while (it.hasNext()) {
+                Ticket t = it.next();
+
+                if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                    resultado.append("Posición: ")
+                            .append(pos++)
+                            .append(" | Ticket: ")
+                            .append(t.getIdTicket())
+                            .append(" | Prioridad: ")
+                            .append(t.getPrioridad())
+                            .append("\n");
+                }
+            }
+        }
+
+        if (resultado.length() == 0) {
+            return "No hay turnos en espera";
+        }
+
+        return resultado.toString();
+    }
+
+    /**
+     * Obtiene la posición de un ticket
+     * dentro de las colas activas
+     * 
+     * El sistema recorre secuencialmente
+     * todas las colas buscando coincidencia
+     * con el ID del ticket recibido
+     * 
+     * Si el ticket es encontrado
+     * retorna su posición actual
+     * 
+     * @param ticket ticket a consultar
+     * @return posición del ticket o -1 si no existe
+    */
+    public int posicion(Ticket ticket) {
+
+        if (ticket == null) return -1;
+
+        int pos = 1;
+
+        for (ColaTurnos cola : colas) {
+
+            var it = cola.iterator();
+
+            while (it.hasNext()) {
+                Ticket t = it.next();
+
+                if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                    if (t.getIdTicket() == ticket.getIdTicket()) {
+                        return pos;
+                    }
+
+                    pos++;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Obtiene la posición actual de un ticket
+     * dentro de la cola global
+     * 
+     * @param idTicket identificador del ticket
+     * @return mensaje con la posición del turno
+    */
+    public String verPosicion(int idTicket){
+
+        int pos = 1;
+
+        Iterator<Ticket> it = colaGlobal.iterator();
+
+        while (it.hasNext()) {
+
+            Ticket t = it.next();
+
+            if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                if (t.getIdTicket() == idTicket) {
+                    return "Tu turno está en posición: " + pos;
+                }
+
+                pos++;
+            }
+        }
+
+        return "No tienes turnos activos";
+    }
+
+    /**
+     * Inserta un ticket dentro de la cola global
+     * respetando el nivel de prioridad
+     * 
+     * Los tickets con mayor prioridad son ubicados
+     * antes en la cola para garantizar atención preferencial
+     * 
+     * El sistema compara prioridades utilizando
+     * el valor ordinal del enum Prioridad
+     * 
+     * @param nuevo ticket que será agregado a la cola global
+    */
+    private void encolarGlobal(Ticket nuevo) {
+
+        if (nuevo == null) return;
+
+        int index = 0;
+
+        Iterator<Ticket> it = colaGlobal.iterator();
+
+        while (it.hasNext()) {
+
+            Ticket actual = it.next();
+
+            if (actual == null) continue;
+            if (actual.getEstado() != EstadoTicket.ACTIVO) continue;
+
+            if (nuevo.getPrioridad().ordinal() < actual.getPrioridad().ordinal()) {
+                break;
+            }
+
+            index++;
+        }
+
+        colaGlobal.insert(index, nuevo);
+    }
+
+    /**
+     * Actualiza los tickets vencidos
+     * 
+     * El sistema revisa todas las colas de atención
+     * y verifica si la fecha de la cita asociada
+     * ya expiró
+     * 
+     * Cuando una cita ya pasó, el ticket cambia a estado VENCIDO
+     * 
+     * Esto evita que clientes con citas expiradas
+     * continúen en las colas activas
+    */
+    public void eliminarTicketsVencidos() {
+
+        for (ColaTurnos cola : colas) {
+
+            var it = cola.iterator();
+
+            while (it.hasNext()) {
+                Ticket t = it.next();
+
+                if (t != null) {
+
+                    Cita cita = buscarCitaCliente(t.getCliente());
+
+                    if (cita != null && new Date().after(cita.getFecha())) {
+                        t.setEstado(EstadoTicket.VENCIDO);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Realiza una busqueda avanzada de citas
+     * utilizando múltiples filtros opcionales
+     * 
+     * - Estado de la cita
+     * - ID del cliente
+     * - Rango de fechas
+     * 
+     * Solo las citas que cumplan todos los criterios
+     * son agregadas al resultado final
+     * 
+     * @param estado estado de la cita
+     * @param idCliente identificador del cliente
+     * @param inicio fecha inicial del rango
+     * @param fin fecha final del rango
+     * @return lista de citas filtradas
+    */
+    public DoublyLinkedList<Cita> filtrarAvanzado(EstadoCita estado,Integer idCliente,Date inicio,Date fin) {
+
+        DoublyLinkedList<Cita> resultado = new DoublyLinkedList<>();
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c == null) continue;
+
+            boolean cumple = true;
+
+            if (estado != null) {
+                if (c.getEstado() != estado) {
+                    cumple = false;
+                }
+            }
+
+            if (idCliente != null) {
+                if (c.getCliente().getId() != idCliente) {
+                    cumple = false;
+                }
+            }
+
+            if (inicio != null && fin != null) {
+                if (c.getFecha().before(inicio) || c.getFecha().after(fin)) {
+                    cumple = false;
+                }
+            }
+
+            if (cumple) resultado.add(c);
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Filtra todas las citas de un cliente 
+     * 
+     * El sistema recorre la lista completa
+     * de citas y agrega aquellas
+     * cuyo cliente coincida con el ID recibido
+     * 
+     * @param idCliente identificador del cliente
+     * @return lista de citas del cliente
+    */
+    public DoublyLinkedList<Cita> filtrarPorCliente(int idCliente) {
+
+        DoublyLinkedList<Cita> resultado = new DoublyLinkedList<>();
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getCliente().getId() == idCliente) {
+                resultado.add(c);
+            }
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Filtra las citas según un estado específico
+     * 
+     * El sistema retorna solo las citas
+     * que coincidan con el estado recibido
+     * 
+     * Este método sirve para reportes
+     * y búsquedas administrativas
+     * 
+     * @param estado estado de cita a filtrar
+     * @return lista de citas filtradas
+    */
+    public DoublyLinkedList<Cita> filtrarPorEstado(EstadoCita estado) {
+
+        DoublyLinkedList<Cita> resultado = new DoublyLinkedList<>();
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getEstado() == estado) {
+                resultado.add(c);
+            }
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Divide una lista de citas en páginas más pequeñas para facilitar
+     * la visualización de los registros
+     * 
+     * El método calcula la posición inicial y final correspondiente
+     * a la página solicitada y agrega las citas que
+     * pertenecen a ese rango
+     *
+     * @param lista lista de citas que se desea paginar
+     * @param pagina número de página que se desea consultar
+     * @param tamañoPagina cantidad de elementos que tendra cada página
+     * @return una nueva lista con las citas correspondientes a la página solicitada
+    */
+    public DoublyLinkedList<Cita> paginar(
+            DoublyLinkedList<Cita> lista,
+            int pagina,
+            int tamañoPagina) {
+
+        DoublyLinkedList<Cita> resultado = new DoublyLinkedList<>();
+
+        int inicio = (pagina - 1) * tamañoPagina;
+        int fin = inicio + tamañoPagina;
+
+        int contador = 0;
+
+        var it = lista.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (contador >= inicio && contador < fin) {
+                resultado.add(c);
+            }
+
+            contador++;
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Verifica las credenciales de acceso de un usuario
+     * 
+     * El método recorre la lista de usuarios registrados y compara
+     * el nombre de usuario y la contraseña, si las
+     * credenciales son válidas, retorna el usuario autenticado
+     *
+     * @param nombre nombre de usuario ingresado.
+     * @param password contraseña ingresada por el usuario.
+     * @return el usuario autenticado si las credenciales son correctas, sino null
+    */
+    public Usuario login(String nombre, String password) {
+
+        var it = usuarios.iterator();
+
+        while (it.hasNext()) {
+            Usuario u = it.next();
+
+            if (u != null &&
+                u.getUsername().equals(nombre) &&
+                u.verificarPassword(password)) {
+
+                return u; 
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cierra la sesión activa del sistema
+    */
+    public void logout() {
+        Sesion.logout();
+    }
+
+    /**
+     * Muestra la información del usuario que tiene
+     * la sesión iniciada
+     * 
+     * Si no existe una sesión activa, el método informa
+     * que no hay usuarios autenticados
+     *
+     * @return una cadena con el nombre de usuario y rol
+     *         del usuario autenticado, o un mensaje indicando
+     *         que no hay sesión activa
+    */
+    public String verPerfil() {
+
+        if (!Sesion.isLogged()) {
+            return "No hay sesión activa";
+        }
+
+        Usuario u = Sesion.getUsuario();
+
+        return "Usuario: " + u.getUsername() +
+                " | Rol: " + u.getRol();
+    }
+
+    /**
+     * Lista todas las citas de un cliente
+     * 
+     * Antes de mostrar la información, el método actualiza
+     * el estado de las citas vencidas, después 
+     * construye un texto con el identificador,
+     * fecha y estado de cada cita del cliente
+     *
+     * @param idCliente identificador del cliente
+     * @return una cadena con las citas registradas del cliente
+     *         o un mensaje indicando que no tiene citas
+    */
+    public String listarMisCitas(int idCliente) {
+
+        actualizarEstadoCitas();
+
+        var it = citas.iterator();
+        String resultado = "";
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null &&
+                c.getCliente().getId() == idCliente) {
+
+                resultado += "ID: " + c.getIdCita() +
+                        " | Fecha: " + c.getFecha() +
+                        " | Estado: " + c.getEstado() + "\n";
+            }
+        }
+
+        return resultado.isEmpty() ? "No tienes citas" : resultado;
+    }
+
+    /**
+     * Muestra todas las citas registradas en el sistema
+     * 
+     * El método actualiza los estados de las citas
+     * y despues construye un listado con la información
+     * de cada cita incluyendo cliente, fecha y estado actual
+     *
+     * @return una cadena con todas las citas registradas
+     *         o un mensaje indicando que no existen citas
+    */
+    public String listarTodasLasCitas() {
+
+        actualizarEstadoCitas();
+
+        var it = citas.iterator();
+        String resultado = "";
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null) {
+                resultado += "ID: " + c.getIdCita() +
+                        " | Cliente: " + c.getCliente().getNombre() +
+                        " | Fecha: " + c.getFecha() +
+                        " | Estado: " + c.getEstado() + "\n";
+            }
+        }
+
+        return resultado.isEmpty() ? "No hay citas" : resultado;
+    }
+
+    /**
+     * Muestra el estado actual de todos los bancos activos del sistema
+     * 
+     * Para cada banco se indica si se encuentra disponible
+     * o atendiendo un cliente
+     *
+     * @return una cadena con la información de disponibilidad de cada banco activo
+    */
+    public String listarBancosDisponibles() {
+
+        StringBuilder sb = new StringBuilder();
+
+        for (Banco b : bancos) {
+
+            if (b.isActivo()) {
+                sb.append("Banco ")
+                .append(b.getIdBanco())
+                .append(" - ")
+                .append(b.isOcupado() ? "OCUPADO" : "DISPONIBLE")
+                .append("\n");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Busca una cita segun su id
+     * 
+     * El método actualiza primero el estado de las citas
+     * y recorre la lista buscando coincidencias
+     *
+     * @param id identificador de la cita
+     * @return una cadena con la información detallada de la cita
+     *         encontrada o un mensaje indicando que no existe
+    */
+    public String buscarCitaTexto(int id) {
+
+        actualizarEstadoCitas();
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getIdCita() == id) {
+                return "ID: " + c.getIdCita() +
+                    "\nCliente: " + c.getCliente().getNombre() +
+                    "\nFecha: " + c.getFecha() +
+                    "\nEstado: " + c.getEstado();
+            }
+        }
+
+        return "Cita no encontrada";
+    }
+
+    /**
+     * Guarda la información de los clientes en el archivo
+     * "clientes.json"
+     * 
+     * El método recorre la lista de clientes y construye
+     * manualmente una estructura en formato JSON con los
+     * datos de cada cliente
+    */
+    public void guardarClientes() {
+        String json = "[";
+        var it = clientes.iterator();
+
+        while (it.hasNext()) {
+            Cliente c = it.next();
+
+            if (c != null) {
+                json += "{"
+                        + "\"id\":" + c.getId() + ","
+                        + "\"nombre\":\"" + c.getNombre() + "\","
+                        + "\"premium\":" + c.isPremium() + ","
+                        + "\"edad\":" + c.getEdad() 
+                        + "},";
+            }
+        }
+
+        json += "]";
+        ArchivoUtil.guardar("clientes.json", json);
+    }
+
+    /**
+     * Guarda todas las citas registradas en el archivo
+     * "citas.json"
+     * 
+     * El método convierte cada cita en una estructura
+     * tipo JSON incluyendo fecha, estado, cliente,
+     * tipo de cita y motivo
+    */
+    public void guardarCitas() {
+
+        String json = "[";
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null) {
+                json += "{"
+                        + "\"id\":" + c.getIdCita() + ","
+                        + "\"fecha\":\"" + c.getFecha().getTime() + "\","
+                        + "\"estado\":\"" + c.getEstado() + "\","
+                        + "\"clienteId\":" + c.getCliente().getId() + ","
+                        + "\"tipo\":\"" + c.getTipoCita() + "\","
+                        + "\"motivo\":\"" + c.getMotivo() + "\""
+                        + "},";
+            }
+        }
+
+        json += "]";
+        ArchivoUtil.guardar("citas.json", json);
+    }
+
+    /**
+     * Carga los clientes almacenados en el archivo
+     * "clientes.json"
+     * 
+     * El método lee la información del archivo, separa
+     * los registros y reconstruye los objetos Cliente
+     * para agregarlos nuevamente a la lista de clientes
+    */
+    public void cargarClientes() {
+
+        String data = ArchivoUtil.leer("clientes.json");
+
+        if (data == null || data.equals("")) return;
+
+        data = data.replace("[", "").replace("]", "");
+
+        String[] registros = data.split("},");
+
+        for (String r : registros) {
+
+            r = r.replace("{", "").replace("}", "");
+
+            String[] campos = r.split(",");
+
+            int id = 0;
+            String nombre = "";
+            int edad = 0;
+            boolean premium = false;
+
+            for (String campo : campos) {
+
+                if (campo.contains("id")) {
+                    id = Integer.parseInt(campo.split(":")[1]);
+                }
+
+                if (campo.contains("nombre")) {
+                    nombre = campo.split(":")[1].replace("\"", "");
+                }
+
+                if (campo.contains("edad")) {
+                    edad = Integer.parseInt(campo.split(":")[1]);
+                }
+
+                if (campo.contains("premium")) {
+                    premium = Boolean.parseBoolean(campo.split(":")[1]);
+                }
+            }
+
+            clientes.add(new Cliente(
+                    id,
+                    "", 
+                    "", 
+                    nombre,
+                    "",
+                    "",
+                    edad,
+                    premium,
+                    true
+            ));
+        }
+    }
+
+     /**
+     * Carga las citas almacenadas en el archivo
+     * "citas.json"
+     * 
+     * El método reconstruye cada cita utilizando
+     * la información guardada en el archivo
+     * relacionando cada cita con su respectivo cliente
+    */
+    public void cargarCitas() {
+
+        String data = ArchivoUtil.leer("citas.json");
+
+        if (data == null || data.trim().isEmpty()) return;
+
+        data = data.replace("[", "").replace("]", "");
+
+        String[] registros = data.split("},");
+
+        for (String r : registros) {
+
+            r = r.replace("{", "").replace("}", "");
+
+            String[] campos = r.split(",");
+
+            int id = 0;
+            long fecha = 0;
+            EstadoCita estado = EstadoCita.ACTIVA;
+            int clienteId = 0;
+            TipoCita tipo = TipoCita.ASESORIA;
+            String motivo = "";
+
+            for (String campo : campos) {
+
+                String[] kv = campo.split(":");
+                if (kv.length < 2) continue;
+
+                String key = kv[0].replace("\"", "").trim();
+                String value = kv[1].replace("\"", "").trim();
+
+                switch (key) {
+                    case "id":
+                        id = Integer.parseInt(value);
+                        break;
+                    case "fecha":
+                        fecha = Long.parseLong(value);
+                        break;
+                    case "estado":
+                        estado = EstadoCita.valueOf(value);
+                        break;
+                    case "clienteId":
+                        clienteId = Integer.parseInt(value);
+                        break;
+                    case "tipo":
+                        tipo = TipoCita.valueOf(value);
+                        break;
+                    case "motivo":
+                        motivo = value;
+                        break;
+                }
+            }
+
+            Cliente cliente = buscarCliente(clienteId);
+
+            if (cliente != null) {
+                citas.add(new Cita(
+                        id,
+                        new Date(fecha),
+                        estado,
+                        cliente,
+                        tipo,
+                        motivo
+                ));
+            }
+        }
+    }
+
+    /**
+     * Busca una cita usando su id
+     * 
+     * El método recorre la lista de citas registradas
+     * hasta encontrar una coincidencia
+     *
+     * @param idCita identificador de la cita
+     * @return la cita encontrada o null si no existe
+    */
+    public Cita buscarCitaPorId(int idCita) {
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+            if (c != null && c.getIdCita() == idCita) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Genera un reporte con todas las citas marcadas
+     * como no asistidas
+     * 
+     * El reporte tiene devinformación
+     * identificador de la cita, nombre del cliente
+     * y fecha programada
+     *
+     * @return una cadena con el reporte de citas
+     *         no asistidas o un mensaje indicando
+     *         que no existen registros
+    */
+    public String reporteNoAsistidos()  {
+
+        String resultado = "";
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getEstado() == EstadoCita.NO_ASISTIDA) {
+                resultado += "Cita ID: " + c.getIdCita()
+                        + " Cliente: " + c.getCliente().getNombre()
+                        + " Fecha: " + c.getFecha() + "\n";
+            }
+        }
+
+        if (resultado.isEmpty()) {
+            return "No hay citas no asistidas";
+        }
+
+        return resultado;
+    }
+
+    /**
+     * Cancela una cita de un cliente
+     * 
+     * El método valida que la cita exista y que
+     * todavía se encuentre activa antes de eliminarla
+     * de la lista principal de citas
+     *
+     * @param idCita identificador de la cita a cancelar
+     * @return true si la cita fue cancelada correctamente;
+     *         false en caso contrario
+    */
+    public boolean cancelarCitaCliente(int idCita) {
+
+        Cita cita = buscarCitaPorId(idCita);
+
+        if (cita == null) {
+            System.out.println("Esa cita no se encontró");
+            return false;
+        }
+
+        if (cita.getEstado() != EstadoCita.ACTIVA) {
+            System.out.println("La cita no está activa");
+            return false;
+        }
+
+        DoublyLinkedList<Cita> nueva = new DoublyLinkedList<>();
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null && c.getIdCita() != idCita) {
+                nueva.add(c);
+            }
+        }
+
+        citas = nueva;
+        guardarCitas();
+
+        System.out.println("Cita cancelada correctamente");
+        return true;
+    }
+
+    /**
+     * Permite modificar la fecha de una cita utilizando
+     * una fecha en formato de texto
+     * 
+     * El método convierte el texto ingresado a un objeto
+     * Date y después actualiza la cita solo
+     * si se encuentra activa
+     *
+     * @param idCita identificador de la cita
+     * @param nuevaFechaTexto nueva fecha en formato
+     *        "dd/MM/yyyy hh:mm a"
+     * @return true si la cita fue modificada correctamente
+     *         false en caso de error o si la cita no esta activa
+    */
+    public boolean editarCitaCliente(int idCita, String nuevaFechaTexto){
+
+        try {
+            SimpleDateFormat f = new SimpleDateFormat("dd/MM/yyyy hh:mm a");
+            Date fecha = f.parse(nuevaFechaTexto);
+
+            var it = citas.iterator();
+
+            while (it.hasNext()) {
+                Cita c = it.next();
+
+                if (c != null && c.getIdCita() == idCita) {
+
+                    if (c.getEstado() != EstadoCita.ACTIVA) {
+                        return false;
+                    }
+
+                    c.setFecha(fecha);
+
+                    guardarCitas();
+                    return true;
+                }
+            }
+
+        } catch(Exception e){
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * Permite al cliente cambiar una de sus citas
+     * 
+     * El método valida que exista una sesión activa y que
+     * la cita pertenezca al usuario autenticado
+     * evita cambios si el cliente ya tiene un ticket
+     * activo en el sistema de turnos
+     *
+     * @param idCita identificador de la cita
+     * @param nuevaFecha nueva fecha de la cita
+     * @param nuevoTipo nuevo tipo de cita
+     * @param motivo nuevo motivo asociado a la cita
+     * @return true si la cita fue editada y false en caso contrario
+    */
+    public boolean editarMiCita(int idCita, Date nuevaFecha, TipoCita nuevoTipo, String motivo) {
+
+        if (!Sesion.isLogged()) return false;
+
+        var it = citas.iterator();
+
+        while (it.hasNext()) {
+            Cita c = it.next();
+
+            if (c != null &&
+                c.getIdCita() == idCita &&
+                c.getCliente().getId() == Sesion.getUsuario().getId()) {
+
+                if (yaTieneTicketActivo(c.getCliente())) {
+                    return false;
+                }
+
+                c.setFecha(nuevaFecha);
+                c.setTipoCita(nuevoTipo);
+                c.setMotivo(motivo);
+
+                guardarCitas();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Construye un objeto Date uniendo una fecha y una hora
+     * seleccionadas por separado
+     * 
+     * El método concatena ambos valores y utiliza
+     * un formato específico para convertir el texto
+     * en una fecha válida
+     *
+     * @param fecha fecha seleccionada
+     * @param horaCompleta hora seleccionada
+     * @return objeto Date construido correctamente o null si ocurre un error de conversión
+    */
+    public Date construirFechaCombo(String fecha, String horaCompleta) {
+
+        try {
+            String completa = fecha + " " + horaCompleta;
+
+            java.text.SimpleDateFormat sdf =
+                    new java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a");
+
+            return sdf.parse(completa);
+
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Muestra el turno que actualmente se encuentra
+     * en atención dentro de las colas locales
+     * 
+     * El método busca el primer ticket activo
+     * y retorna información del turno,
+     * prioridad y cliente asociado
+     *
+     * @return información del turno actual o un mensaje
+     *         indicando que no hay turnos en atención
+    */
+    public String verTurnoActual() {
+
+        for (ColaTurnos c : colas) {
+
+            var it = c.iterator();
+
+            while (it.hasNext()) {
+                Ticket t = it.next();
+
+                if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                    return "Turno actual: " +
+                            t.getIdTicket() +
+                            " | Prioridad: " +
+                            t.getPrioridad() +
+                            " | Cliente: " +
+                            t.getCliente().getNombre();
+                }
+            }
+        }
+
+        return "No hay turnos en atención";
+    }
+
+    /**
+     * Muestra el siguiente turno pendiente dentro
+     * de la cola global de prioridad
+     * 
+     * El método retorna la información del primer
+     * ticket activo encontrado en la cola global
+     *
+     * @return información del siguiente turno o un mensaje
+     *         indicando que no existen turnos pendientes
+    */
+    public String verTurnoActualGlobal() {
+
+        Iterator<Ticket> it = colaGlobal.iterator();
+
+        while (it.hasNext()) {
+
+            Ticket t = it.next();
+
+            if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                return "Siguiente turno: " +
+                        t.getIdTicket() +
+                        " | Prioridad: " +
+                        t.getPrioridad();
+            }
+        }
+
+        return "No hay turnos en espera";
+    }
+
+    /**
+     * Muestra todos los tickets activos almacenados
+     * en la cola global de prioridad
+     * 
+     * El listado incluye la posición, id del ticket y prioridad asignada a cada cliente
+     *
+     * @return una representación textual de la cola global o un mensaje indicando que no existen turnos
+    */
+    public String verColaGlobal() {
+
+        StringBuilder sb = new StringBuilder();
+
+        Iterator<Ticket> it = colaGlobal.iterator();
+
+        int pos = 1;
+
+        while (it.hasNext()) {
+
+            Ticket t = it.next();
+
+            if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+
+                sb.append("Posición: ")
+                .append(pos++)
+                .append(" | Ticket: ")
+                .append(t.getIdTicket())
+                .append(" | Prioridad: ")
+                .append(t.getPrioridad())
+                .append("\n");
+            }
+        }
+
+        return sb.length() == 0 ? "Sin turnos" : sb.toString();
+    }
+
+    /**
+     * Obtiene el siguiente ticket válido de la cola global
+     * 
+     * El método extrae tickets en orden de prioridad
+     * hasta encontrar uno que siga activo
+     *
+     * @return el siguiente ticket activo disponible o null si la cola está vacía.
+    */
+    public Ticket obtenerSiguienteTicketGlobal() {
+
+        while (!colaGlobal.isEmpty()) {
+
+            Ticket t = colaGlobal.extract(); 
+
+            if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+                return t;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Muestra información sobre el funcionamiento
+     * del sistema de citas y turnos
+     * 
+     * Se explican las reglas relacionadas con prioridades,
+     * generación de tickets y tiempos permitidos para
+     * ingresar al sistema de atención
+     *
+     * @return mensaje informativo sobre el funcionamiento
+     *         de las citas y prioridades
+    */
+    public String infoCitas() {
+        return "IMPORTANTE SOBRE TU CITA\n\n" +
+            "La hora de la cita NO define el orden exacto de atención.\n\n" +
+            "-La cita solo te da derecho a ingresar al sistema de turnos en ese horario.\n" +
+            "-El orden real depende de cuando generas tu ticket y tu prioridad.\n\n" +
+            "-Clientes premium y adultos mayores tienen prioridad sobre clientes estándar, incluso si su cita es a la misma hora o después.\n\n" +
+            "-Tienes un margen de 10 minutos antes de tu cita para generar tu ticket. Si no lo haces, puedes perder tu turno.\n\n" +  
+            "Ejemplo:\n" +
+            "Dos personas con cita a las 10:00 AM:\n" +
+            "- Cliente estándar\n" +
+            "- Cliente premium\n\n" +
+            "El cliente premium será atendido primero.\n\n" +
+            "Si no generas tu ticket a tiempo, puedes perder tu turno.";
+    }
+}
+
+    

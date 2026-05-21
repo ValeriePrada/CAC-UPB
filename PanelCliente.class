@@ -1,0 +1,10 @@
+package co.edu.upb.proyecto.datastructures.model.priorityqueue;
+
+import co.edu.upb.proyecto.datastructures.model.queue.Queue;
+
+public interface PriorityQueue<E> extends Queue<E> {
+
+    public boolean insert(E element);
+
+    public boolean insert(int index, E element);
+}

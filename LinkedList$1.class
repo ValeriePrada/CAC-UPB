@@ -1,0 +1,85 @@
+package co.edu.upb.proyecto.model;
+
+import java.util.Date;
+import co.edu.upb.proyecto.datastructures.app.linkedlist.doubly.DoublyLinkedList;
+
+/**
+ * interfaz encargada de definir las operaciones principales
+ * relacionadas con la gestión de citas dentro del sistema
+ * 
+ * esta interfaz funciona como un contrato que obliga a las
+ * clases que la implementen a desarrollar métodos para
+ * crear, cancelar, editar, listar, buscar, filtrar y paginar citas
+ * 
+ * también permite mantener una estructura organizada para
+ * facilitar la reutilización del código
+*/
+public interface CitaService {
+
+    /**
+     * crea y registra una nueva cita dentro del sistema
+     * 
+     * @param cita Objeto cita que contiene la información de la nueva cita a registrar
+     * @return true si la cita fue creada correctamente,false en caso contrario
+    */
+    boolean crearCita(Cita cita);
+
+    /**
+     * cancela una cita existente usando su id
+     * 
+     * @param idCita id de la cita que se desea cancelar
+     * @return true si la cita fue cancelada, false si no se encontró la cita
+    */
+    boolean cancelarCita(int idCita);
+
+    /**
+     * cambia la fecha de una cita existente
+     * 
+     * @param idCita ID de la cita que se desea editar.
+     * @param nuevaFecha Nueva fecha asignada a la cita.
+    */
+    void editarCita(int idCita, Date nuevaFecha);
+
+    /**
+     * retorna todas las citas registradas en el sistema
+     * 
+     * @return Lista doblemente enlazada con todas las citas
+    */
+    DoublyLinkedList<Cita> listarCitas();
+
+    /**
+     * busca la cita asociada a un cliente específico
+     * 
+     * @param cliente Cliente del cual se desea consultar la cita
+     * @return La cita encontrada o null si no existe
+    */
+    Cita buscarCitaCliente(Cliente cliente);
+
+    /**
+     * filtra citas utilizando diferentes criterios de busqueda
+     * 
+     * permite filtrar por
+     * - estado de la cita
+     * - id del cliente
+     * - fecha inicial
+     * - fecha final
+     * 
+     * @param estado estado de la cita 
+     * @param idCliente id del cliente
+     * @param inicio fecha inicial del rango
+     * @param fin fecha final del rango
+     * @return lista con las citas que cumplen los filtros
+    */
+    DoublyLinkedList<Cita> filtrarAvanzado(EstadoCita estado, Integer idCliente, Date inicio, Date fin);
+
+    /**
+     * divide una lista de citas en páginas para facilitar
+     * la vista de grandes cantidades de información
+     * 
+     * @param lista lista original de citas
+     * @param pagina número de página solicitada
+     * @param tamañoPagina cantidad de elementos por página
+     * @return lista paginada con las citas correspondientes
+    */
+    DoublyLinkedList<Cita> paginar( DoublyLinkedList<Cita> lista, int pagina, int tamañoPagina);
+}

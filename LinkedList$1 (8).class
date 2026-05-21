@@ -1,0 +1,125 @@
+package co.edu.upb.proyecto.model;
+
+import co.edu.upb.proyecto.service.SistemaCAC;
+
+
+/**
+ * Clase que representa una máquina kiosco del sistema CAC
+ * 
+ * Su función es permitir que los clientes puedan
+ * - identificarse
+ * - buscar su información
+ * - generar tickets
+ * - imprimir tickets
+ * 
+ * La maquina se conecta directamente con el SistemaCAC para realizar las operaciones correspondientes
+*/
+public class MaquinaKiosco {
+
+    /**
+     * Ubicación fisica donde se encuentra la maquina
+    */
+    private String ubicacion;
+
+    /**
+     * Referencia al sistema principal CAC
+     * 
+     * transient para evitar que sea serializado,
+     * porque representa una conexión temporal al sistema
+    */
+    private transient SistemaCAC sistema; 
+
+    /**
+     * Constructor que inicializa la máquina kiosco
+     * 
+     * @param ubicacion Lugar donde está ubicada
+     * @param sistema Referencia al sistema principal
+    */
+    public MaquinaKiosco(String ubicacion, SistemaCAC sistema) {
+        this.ubicacion = ubicacion;
+        this.sistema = sistema;
+    }
+
+    public String getUbicacion() {
+        return ubicacion;
+    }
+
+    public void setUbicacion(String ubicacion) {
+        this.ubicacion = ubicacion;
+    }
+
+
+    /**
+     * Simula la lectura de la identificación del cliente
+     * 
+     * En este caso retorna un valor fijo como ejemplo
+     * @return Identificación del cliente en formato texto.
+    */
+    public String leerIdentificacion() {
+        return "2";
+    }
+
+    /**
+     * Busca un cliente dentro del sistema con su identificación
+     * 
+     * El método convierte la identificación recibida
+     * en un número entero y luego consulta el sistema
+     * 
+     * Si ocurre un error en la conversión, retorna null.
+     * 
+     * @param identificacion Identificación ingresada
+     * @return Cliente encontrado o null
+    */
+    public Cliente buscarCliente(String identificacion) {
+        try {
+            int id = Integer.parseInt(identificacion);
+            return sistema.buscarCliente(id);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Genera un ticket para el cliente
+     * 
+     * El ticket es creado a través del SistemaCAC, el cual determina
+     * - prioridad
+     * - número del ticket
+     * - estado
+     * - cola correspondiente
+     * 
+     * Si el cliente es null no se genera el ticket
+     * 
+     * @param cliente Cliente que solicita el turno
+     * @return Ticket generado o null
+    */
+    public Ticket generarTicket(Cliente cliente) {
+        if (cliente == null) return null;
+
+        return sistema.generarTicketConMensaje(cliente.getId()).ticket;
+    }
+
+    /**
+     * Muestra en consola la información del ticket generado
+     * 
+     * Se imprime
+     * - número del ticket
+     * - prioridad
+     * - estado actual
+     * 
+     * Si el ticket es null, se informa que no pudo generarse 
+     * 
+     * @param ticket Ticket que se desea imprimir.
+    */
+    public void imprimirTicket(Ticket ticket) {
+        if (ticket == null) {
+            System.out.println("No se pudo generar el ticket");
+            return;
+        }
+
+        System.out.println("TICKET");
+        System.out.println("Número: " + ticket.getNumero());
+        System.out.println("Prioridad: " + ticket.getPrioridad());
+        System.out.println("Estado: " + ticket.getEstado());
+    }
+}

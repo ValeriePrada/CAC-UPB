@@ -1,0 +1,22 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Enumeración que representa los tipos de citas disponibles
+*/
+public enum TipoCita {
+
+    /**
+     * Cita relacionada con reclamos
+    */
+    RECLAMO,
+
+    /**
+     * Cita relacionada con devoluciones
+    */
+    DEVOLUCION,
+
+    /**
+     * Cita relacionada con asesorias
+    */
+    ASESORIA
+}

@@ -1,0 +1,779 @@
+package co.edu.upb.proyecto;
+
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import co.edu.upb.proyecto.model.*;
+import co.edu.upb.proyecto.service.SistemaCAC;
+import java.util.Date;
+
+/**
+ * Clase de pruebas unitarias para el sistema CAC
+ * 
+ * Estas pruebas validan
+ * - Registro y búsqueda de clientes
+ * - Validaciones de clientes
+ * - Creación, edición y cancelación de citas
+ * - Generación de tickets
+ * - Actualización automática de estados
+ * - Funcionamiento de colas y turnos
+ * - Filtros de citas
+ * - Reportes del sistema
+ * - Reglas de prioridad
+ * 
+ * Se utilizan distintos tipos de clientes
+ * cliente normal, premium, adulto mayor y premium adulto mayor
+ */
+public class SistemaCACTest {
+
+    private SistemaCAC sistema;
+
+    private Cliente clienteNormal;
+    private Cliente clientePremium;
+    private Cliente adultoMayor;
+    private Cliente premiumAdultoMayor;
+
+    /**
+     * Inicializa el sistema y crea clientes de prueba antes de cada test
+     */
+    @BeforeEach
+    public void setUp() {
+
+        sistema = new SistemaCAC(false);
+
+        clienteNormal = new Cliente(
+                1,
+                "juan",
+                "123",
+                "Juan",
+                "juan",
+                "",
+                25,
+                false,
+                true
+        );
+
+        clientePremium = new Cliente(
+                2,
+                "maria",
+                "123",
+                "Maria",
+                "maria",
+                "",
+                30,
+                true,
+                true
+        );
+
+        adultoMayor = new Cliente(
+                3,
+                "carlos",
+                "123",
+                "Carlos",
+                "carlos",
+                "",
+                70,
+                false,
+                true
+        );
+
+        premiumAdultoMayor = new Cliente(
+                4,
+                "ana",
+                "123",
+                "Ana",
+                "ana",
+                "",
+                65,
+                true,
+                true
+        );
+    }
+
+    /**
+     * Verifica que un cliente premium
+     * tenga correctamente la membresía activa
+     */
+    @Test
+    public void testClientePremium() {
+
+        assertTrue(clientePremium.isPremium());
+    }
+
+    /**
+     * Verifica que un cliente normal no sea premium
+     */
+    @Test
+    public void testClienteNormalNoPremium() {
+
+        assertFalse(clienteNormal.isPremium());
+    }
+
+    /**
+     * Verifica que un cliente sea considerado adulto mayor cuando supera los 60 años
+     */
+    @Test
+    public void testAdultoMayor() {
+
+        assertTrue(adultoMayor.getEdad() >= 60);
+    }
+
+    /**
+     * Verifica la combinación de prioridad más alta del sistema
+     * cliente premium + adulto mayor
+     */
+    @Test
+    public void testPremiumAdultoMayor() {
+
+        assertTrue(premiumAdultoMayor.isPremium());
+        assertTrue(premiumAdultoMayor.getEdad() >= 60);
+    }
+
+    /**
+     * Verifica el registro correcto de un cliente en el sistema
+     */
+    @Test
+    public void testRegistrarCliente() {
+
+        sistema.registrarCliente(clienteNormal);
+
+        Cliente encontrado = sistema.buscarCliente(1);
+
+        assertNotNull(encontrado);
+        assertEquals("Juan", encontrado.getNombre());
+    }
+
+    /**
+     * Verifica que el sistema encuentre correctamente un cliente existente
+     */
+    @Test
+    public void testBuscarClienteExistente() {
+
+        sistema.registrarCliente(clientePremium);
+
+        Cliente encontrado = sistema.buscarCliente(2);
+
+        assertNotNull(encontrado);
+    }
+
+    /**
+     * Verifica que buscar un cliente inexistente retorne null
+     */
+    @Test
+    public void testBuscarClienteInexistente() {
+
+        Cliente encontrado = sistema.buscarCliente(999);
+
+        assertNull(encontrado);
+    }
+
+    /**
+     * Verifica que un cliente válido pase correctamente las validaciones
+     */
+    @Test
+    public void testValidarClienteCorrecto() {
+
+        boolean valido = sistema.validarCliente(clienteNormal);
+
+        assertTrue(valido);
+    }
+
+    /**
+     * Verifica que validar un cliente null retorne false
+     */
+    @Test
+    public void testValidarClienteNull() {
+
+        boolean valido = sistema.validarCliente(null);
+
+        assertFalse(valido);
+    }
+
+    /**
+     * Verifica que un cliente con nombre vacío sea inválido
+     */
+    @Test
+    public void testValidarClienteNombreVacio() {
+
+        Cliente cliente = new Cliente(
+                10,
+                "aaa",
+                "123",
+                "",
+                "aaa",
+                "",
+                20,
+                false,
+                true
+        );
+
+        boolean valido = sistema.validarCliente(cliente);
+
+        assertFalse(valido);
+    }
+
+    /**
+     * Verifica que una edad negativa no sea válida
+     */
+    @Test
+    public void testValidarClienteEdadNegativa() {
+
+        Cliente cliente = new Cliente(
+                11,
+                "bbb",
+                "123",
+                "Pedro",
+                "bbb",
+                "",
+                -1,
+                false,
+                true
+        );
+
+        boolean valido = sistema.validarCliente(cliente);
+
+        assertFalse(valido);
+    }
+
+    /**
+     * Verifica que edades mayores a 120 sean rechazadas
+     */
+    @Test
+    public void testValidarClienteEdadMayor120() {
+
+        Cliente cliente = new Cliente(
+                12,
+                "ccc",
+                "123",
+                "Pedro",
+                "ccc",
+                "",
+                150,
+                false,
+                true
+        );
+
+        boolean valido = sistema.validarCliente(cliente);
+
+        assertFalse(valido);
+    }
+
+    /**
+     * Verifica el registro automático de un usuario cliente
+     */
+    @Test
+    public void testRegistrarUsuarioCliente() {
+
+        boolean registrado = sistema.registrarUsuarioCliente(
+                20,
+                "laura",
+                "123",
+                "Laura",
+                22,
+                true
+        );
+
+        Cliente encontrado = sistema.buscarCliente(20);
+
+        assertTrue(registrado);
+        assertNotNull(encontrado);
+        assertEquals("Laura", encontrado.getNombre());
+    }
+
+    /**
+     * Verifica la creación correcta de una cita
+     */
+    @Test
+    public void testCrearCita() {
+
+        Cita cita = new Cita(
+                1,
+                new Date(),
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.ASESORIA,
+                "Asesoria"
+        );
+
+        boolean creada = sistema.crearCita(cita);
+
+        assertTrue(creada);
+    }
+
+    /**
+     * Verifica la cancelación de una cita existente
+     */
+    @Test
+    public void testCancelarCitaExistente() {
+
+        Cita cita = new Cita(
+                4,
+                new Date(),
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.ASESORIA,
+                "Cancelar"
+        );
+
+        sistema.crearCita(cita);
+
+        boolean eliminada = sistema.cancelarCita(4);
+
+        assertTrue(eliminada);
+    }
+
+    /**
+     * Verifica que cancelar una cita inexistente retorne false
+     */
+    @Test
+    public void testCancelarCitaInexistente() {
+
+        boolean eliminada = sistema.cancelarCita(999);
+
+        assertFalse(eliminada);
+    }
+
+    /**
+     * Verifica la edición correcta de la fecha de una cita
+     */
+    @Test
+    public void testEditarCita() {
+
+        Date fechaOriginal = new Date();
+
+        Cita cita = new Cita(
+                5,
+                fechaOriginal,
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.ASESORIA,
+                "Cambio fecha"
+        );
+
+        sistema.crearCita(cita);
+
+        Date nuevaFecha = new Date(
+                System.currentTimeMillis() + 50000
+        );
+
+        sistema.editarCita(5, nuevaFecha);
+
+        Cita encontrada =
+                sistema.buscarCitaCliente(clienteNormal);
+
+        assertEquals(
+                nuevaFecha,
+                encontrada.getFecha()
+        );
+    }
+
+    /**
+     * Verifica que el sistema impida generar tickets para clientes inexistentes
+     */
+    @Test
+    public void testGenerarTicketClienteNoExiste() {
+
+        SistemaCAC.ResultadoTicket resultado =
+                sistema.generarTicketConMensaje(999);
+
+        assertNull(resultado.ticket);
+
+        assertEquals(
+                "Cliente no encontrado",
+                resultado.mensaje
+        );
+    }
+
+    /**
+     * Verifica que no pueda generarse un ticket sin una cita activa
+     */
+    @Test
+    public void testGenerarTicketSinCitaActiva() {
+
+        sistema.registrarCliente(clienteNormal);
+
+        SistemaCAC.ResultadoTicket resultado =
+                sistema.generarTicketConMensaje(1);
+
+        assertNull(resultado.ticket);
+
+        assertEquals(
+                "No tienes una cita ACTIVA registrada",
+                resultado.mensaje
+        );
+    }
+
+    /**
+     * Verifica que el sistema no permita generar tickets antes del tiempo permitido
+     */
+    @Test
+    public void testGenerarTicketAntesDeTiempo() {
+
+        sistema.registrarCliente(clienteNormal);
+
+        Date fechaFutura = new Date(
+                System.currentTimeMillis() + (30 * 60 * 1000)
+        );
+
+        Cita cita = new Cita(
+                20,
+                fechaFutura,
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.DEVOLUCION,
+                "Consulta"
+        );
+
+        sistema.crearCita(cita);
+
+        SistemaCAC.ResultadoTicket resultado =
+                sistema.generarTicketConMensaje(1);
+
+        assertNull(resultado.ticket);
+
+        assertEquals(
+                "Solo puedes generar el ticket 10 minutos antes de tu cita",
+                resultado.mensaje
+        );
+    }
+
+    /**
+     * Verifica que una cita vencida no permita generar tickets
+     */
+    @Test
+    public void testGenerarTicketCitaVencida() {
+
+        sistema.registrarCliente(adultoMayor);
+
+        Date fechaPasada = new Date(
+                System.currentTimeMillis() - (20 * 60 * 1000)
+        );
+
+        Cita cita = new Cita(
+                21,
+                fechaPasada,
+                EstadoCita.ACTIVA,
+                adultoMayor,
+                TipoCita.DEVOLUCION,
+                "Asesoria"
+        );
+
+        sistema.crearCita(cita);
+
+        SistemaCAC.ResultadoTicket resultado =
+                sistema.generarTicketConMensaje(3);
+
+        assertNull(resultado.ticket);
+
+        assertEquals(
+                "Tu cita ya venció",
+                resultado.mensaje
+        );
+    }
+
+    /**
+     * Verifica la generación correcta de un ticket válido
+     */
+    @Test
+    public void testGenerarTicketCorrectamente() {
+
+        sistema.registrarCliente(clientePremium);
+
+        Date fechaValida = new Date(
+                System.currentTimeMillis() + (5 * 60 * 1000)
+        );
+
+        Cita cita = new Cita(
+                22,
+                fechaValida,
+                EstadoCita.ACTIVA,
+                clientePremium,
+                TipoCita.DEVOLUCION,
+                "Generar ticket"
+        );
+
+        sistema.crearCita(cita);
+
+        SistemaCAC.ResultadoTicket resultado =
+                sistema.generarTicketConMensaje(2);
+
+        assertNotNull(resultado.ticket);
+
+        assertEquals(
+                "Ticket generado correctamente",
+                resultado.mensaje
+        );
+    }
+
+    /**
+     * Verifica que las citas vencidas cambien automáticamente a NO_ASISTIDA
+     */
+    @Test
+    public void testActualizarEstadoCitas() {
+
+        Date fechaPasada = new Date(
+                System.currentTimeMillis() - 50000
+        );
+
+        Cita cita = new Cita(
+                30,
+                fechaPasada,
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.DEVOLUCION,
+                "Cita vencida"
+        );
+
+        sistema.crearCita(cita);
+
+        sistema.actualizarEstadoCitas();
+
+        Cita encontrada =
+                sistema.buscarCitaCliente(clienteNormal);
+
+        assertEquals(
+                EstadoCita.NO_ASISTIDA,
+                encontrada.getEstado()
+        );
+    }
+
+    /**
+     * Verifica el comportamiento de consulta de turno cuando no existen tickets activos
+     */
+    @Test
+    public void testVerTurnoActualClienteSinTurnos() {
+
+        String resultado =
+                sistema.verTurnoActualCliente(1);
+
+        assertEquals(
+                "Sin turnos",
+                resultado
+        );
+    }
+
+    /**
+     * Verifica que la cola vacía muestre el mensaje correcto
+     */
+    @Test
+    public void testVerColaVacia() {
+
+        String resultado = sistema.verCola();
+
+        assertEquals(
+                "No hay turnos en espera",
+                resultado
+        );
+    }
+
+    /**
+     * Verifica que consultar la posición de un ticket inexistente muestre el mensaje correcto
+     */
+    @Test
+    public void testVerPosicionTicketInexistente() {
+
+        String resultado =
+                sistema.verPosicion(999);
+
+        assertEquals(
+                "No tienes turnos activos",
+                resultado
+        );
+    }
+
+    /**
+     * Verifica que no existan turnos actuales cuando la cola está vacía
+     */
+    @Test
+    public void testVerTurnoActualSinTurnos() {
+
+        String resultado =
+                sistema.verTurnoActual();
+
+        assertEquals(
+                "No hay turnos en atención",
+                resultado
+        );
+    }
+
+    /**
+     * Verifica que la cola global vacía muestre el mensaje correcto
+     */
+    @Test
+    public void testVerTurnoActualGlobalSinTurnos() {
+
+        String resultado =
+                sistema.verTurnoActualGlobal();
+
+        assertEquals(
+                "No hay turnos en espera",
+                resultado
+        );
+    }
+
+    /**
+     * Verifica la visualización de la cola global cuando no existen tickets
+     */
+    @Test
+    public void testVerColaGlobalSinTurnos() {
+
+        String resultado =
+                sistema.verColaGlobal();
+
+        assertEquals(
+                "Sin turnos",
+                resultado
+        );
+    }
+
+    /**
+     * Verifica que obtener tickets desde una cola vacía retorne null
+     */
+    @Test
+    public void testObtenerSiguienteTicketGlobalVacio() {
+
+        Ticket ticket =
+                sistema.obtenerSiguienteTicketGlobal();
+
+        assertNull(ticket);
+    }
+
+    /**
+     * Verifica el filtrado de citas por cliente
+     */
+    @Test
+    public void testFiltrarPorCliente() {
+
+        Cita cita = new Cita(
+                1,
+                new Date(),
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.RECLAMO,
+                "Consulta"
+        );
+
+        sistema.crearCita(cita);
+
+        var resultado =
+                sistema.filtrarPorCliente(1);
+
+        assertFalse(resultado.isEmpty());
+    }
+
+    /**
+     * Verifica el filtrado de citas por estado
+     */
+    @Test
+    public void testFiltrarPorEstado() {
+
+        Cita cita = new Cita(
+                2,
+                new Date(),
+                EstadoCita.ACTIVA,
+                clienteNormal,
+                TipoCita.RECLAMO,
+                "Consulta"
+        );
+
+        sistema.crearCita(cita);
+
+        var resultado =
+                sistema.filtrarPorEstado(
+                        EstadoCita.ACTIVA
+                );
+
+        assertFalse(resultado.isEmpty());
+    }
+
+    /**
+     * Verifica el filtrado avanzado utilizando el estado de la cita
+     */
+    @Test
+    public void testFiltrarAvanzadoPorEstado() {
+
+        Cita cita = new Cita(
+                3,
+                new Date(),
+                EstadoCita.FINALIZADA,
+                clienteNormal,
+                TipoCita.RECLAMO,
+                "Consulta"
+        );
+
+        sistema.crearCita(cita);
+
+        var resultado =
+                sistema.filtrarAvanzado(
+                        EstadoCita.FINALIZADA,
+                        null,
+                        null,
+                        null
+                );
+
+        assertFalse(resultado.isEmpty());
+    }
+
+    /**
+     * Verifica la generación de reportes de citas no asistidas
+     */
+    @Test
+    public void testReporteNoAsistidosConDatos() {
+
+        Cita cita = new Cita(
+                3,
+                new Date(),
+                EstadoCita.NO_ASISTIDA,
+                clientePremium,
+                TipoCita.RECLAMO,
+                "Consulta"
+        );
+
+        sistema.crearCita(cita);
+
+        String resultado =
+                sistema.reporteNoAsistidos();
+
+        assertTrue(
+                resultado.contains("Cita ID: 3")
+        );
+    }
+
+    /**
+     * Verifica la visualización de bancos disponibles
+     */
+    @Test
+    public void testListarBancosDisponibles() {
+
+        String resultado =
+                sistema.listarBancosDisponibles();
+
+        assertTrue(resultado.contains("Banco 1"));
+
+        assertTrue(
+                resultado.contains("DISPONIBLE")
+        );
+    }
+
+    /**
+     * Verifica el mensaje informativo sobre prioridades y funcionamiento
+     * del sistema de citas
+     */
+    @Test
+    public void testInfoCitas() {
+
+        String resultado = sistema.infoCitas();
+
+        assertTrue(
+                resultado.contains(
+                        "IMPORTANTE SOBRE TU CITA"
+                )
+        );
+
+        assertTrue(
+                resultado.contains(
+                        "Cliente premium"
+                )
+        );
+    }
+}

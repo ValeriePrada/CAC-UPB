@@ -1,0 +1,27 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Enumeración que representa los estados de un ticket en del sistema
+*/
+public enum EstadoTicket {
+
+    /**
+     * Ticket activo y pendiente de atención
+    */
+    ACTIVO,
+
+    /**
+     * Ticket que ya fue atendido
+    */
+    ATENDIDO,
+
+    /**
+     * Ticket vencido por no presentarse en el tiempo permitido
+    */
+    VENCIDO,
+
+    /**
+     * Ticket cancelado
+    */
+    CANCELADO
+}

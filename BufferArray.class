@@ -1,0 +1,59 @@
+package co.edu.upb.proyecto.server.rmi;
+
+import javax.swing.*;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+
+/**
+ * Clase principal encargada de iniciar el servidor RMI del sistema CAC
+ * 
+ * Esta clase crea una instancia del servidor remoto, inicia el registro
+ * RMI en el puerto 1099 y publica el servicio con el nombre "CAC"
+ * para que los clientes puedan conectarse remotamente
+ * 
+ * muestra una pequeña ventana gráfica indicando que el
+ * servidor se encuentra activo y listo para recibir conexiones
+*/
+public class ServidorMain {
+
+    /**
+     * Método principal que ejecuta el servidor RMI
+     * 
+     * 1. Configura la dirección del servidor RMI
+     * 2. Crea la instancia del objeto remoto SistemaCACServer
+     * 3. Inicia el registro RMI en el puerto 1099
+     * 4. Publica el objeto remoto con el nombre "CAC"
+     * 5. Muestra una ventana gráfica indicando que el servidor esta listo
+     * 
+     * Si ocurre algún error durante el proceso, la excepción es capturada y mostrada en consola
+     *
+     * @param args argumentos de ejecución
+    */
+    public static void main(String[] args) {
+
+        try {
+
+            System.setProperty("java.rmi.server.hostname", "localhost");
+
+            SistemaCACServer obj = new SistemaCACServer();
+
+            Registry registry = LocateRegistry.createRegistry(1099);
+            registry.rebind("CAC", obj);
+
+            JFrame frame = new JFrame("RMI Server");
+            frame.setSize(300,150);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setLocationRelativeTo(null);
+
+            JLabel label = new JLabel("Server is READY", SwingConstants.CENTER);
+            frame.add(label);
+
+            frame.setVisible(true);
+
+            System.out.println("RMI Server is running...");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}

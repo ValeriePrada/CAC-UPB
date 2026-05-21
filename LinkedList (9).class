@@ -1,0 +1,92 @@
+package co.edu.upb.proyecto.model;
+
+import co.edu.upb.proyecto.service.SistemaCAC;
+
+/**
+ * Clase que representa los monitores del sistema de turnos
+ * 
+ * Los monitores permiten ver
+ * - turnos actuales
+ * - posiciones en cola
+ * - actualizaciones de la fila
+ * - notificaciones de llamados
+*/
+public class Monitor {
+
+    /**
+     * Referencia al sistema principal CAC
+     * 
+     * Se marca como transient porque no es necesario serializar la conexión al sistema
+    */
+    private transient SistemaCAC sistema;
+
+    /**
+     * Constructor que inicializa el monitor
+     * 
+     * @param sistema Referencia al sistema CAC
+    */
+    public Monitor(SistemaCAC sistema) {
+        this.sistema = sistema;
+    }
+
+    /**
+     * Obtiene y muestra el siguiente turno disponible para atención
+     * 
+     * El sistema asigna el ticket y el banco correspondiente
+     * 
+     * Si no existen clientes en espera, retorna un mensaje
+     * 
+     * @return Texto con el turno actual
+    */
+    public String mostrarTurnoActual() {
+        Turno turno = sistema.atenderSiguienteTurno();
+
+        if (turno == null) {
+            return "No hay clientes en espera";
+        }
+
+        return "Turno actual: " +
+            turno.getTicket().getNumero() +
+            " en banco " +
+            turno.getBanco().getIdBanco();
+    }
+
+    /**
+     * Consulta la posición actual de un ticket en la cola
+     * 
+     * Si el ticket es null retorna -1
+     * 
+     * @param ticket Ticket que se va a consultar
+     * @return Posición del ticket en la cola
+    */
+    public int mostrarPosicionEnCola(Ticket ticket) {
+        if (ticket == null) return -1;
+        return sistema.posicion(ticket);
+    }
+
+    /**
+     * Muestra en consola el estado de la cola de turnos
+     * 
+     * Permite ver los tickets que están esperando atención
+    */
+    public void actualizarColaTiempoReal() {
+        System.out.println("=== COLA ACTUAL ===");
+        System.out.println(sistema.verCola());
+    }
+
+    /**
+     * Muestra una notificación indicando cual turno ha sido llamado
+     * 
+     * Si el ticket es null, informa que no existe turno
+     * 
+     * @param ticket Ticket llamado
+    */
+    public void notificarTurno(Ticket ticket) {
+        if (ticket == null) {
+            System.out.println("No hay turno");
+            return;
+        }
+
+        System.out.println("Turno llamado: " + ticket.getNumero());
+    }
+}

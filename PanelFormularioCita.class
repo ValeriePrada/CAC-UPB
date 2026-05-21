@@ -1,0 +1,8 @@
+package co.edu.upb.proyecto.datastructures.model.queue;
+
+import co.edu.upb.proyecto.datastructures.model.collection.AbstractCollection;
+
+
+public abstract class AbstractQueue<E> extends AbstractCollection<E> implements Queue<E> {
+
+}

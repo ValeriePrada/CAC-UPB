@@ -1,0 +1,27 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Enumeración que representa los estados de un turno en el sistema
+*/
+public enum EstadoTurno {
+
+    /**
+     * El turno está esperando ser llamado
+    */
+    EN_ESPERA,
+
+    /**
+     * El turno ya fue llamado al banco
+    */
+    LLAMADO,
+
+    /**
+     * El cliente está siendo atendido
+    */
+    EN_ATENCION,
+
+    /**
+     * El turno ya terminó
+    */
+    FINALIZADO
+}

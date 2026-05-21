@@ -1,0 +1,244 @@
+package co.edu.upb.proyecto.model;
+
+import java.io.Serializable;
+import java.util.Date;
+
+/**
+ * Representa una cita registrada dentro del sistema CAC
+ * 
+ * Una cita almacena información relacionada con la fecha,
+ * estado, cliente, tipo de atención y motivo
+ */
+
+public class Cita implements Serializable{
+
+    /**
+     * identificador unico de la cita
+     */
+    private int idCita;
+
+    /**
+     * fecha y hora programada para la cita
+    */
+    private Date fecha;
+
+    /**
+     * estado actual de la cita
+    */
+    private EstadoCita estado;
+
+    /**
+     * cliente titular de la cita
+    */
+    private Cliente cliente;
+
+    /**
+     * tipo de cita solicitada
+    */
+    private TipoCita tipo;
+
+    /**
+     * Motivo o descripción de la cita
+    */
+    private String motivo;
+
+    /**
+     * Constructor de la clase Cita
+     * 
+     * Inicializa todos los datos necesarios
+     * para registrar una cita en el sistema
+     *
+     * @param idCita identificador de la cita
+     * @param fecha fecha programada de atención
+     * @param estado estado inicial de la cita
+     * @param cliente cliente titular
+     * @param tipo tipo de cita solicitada
+     * @param motivo motivo de la cita
+    */
+    public Cita(int idCita, Date fecha, EstadoCita estado,
+            Cliente cliente, TipoCita tipo, String motivo) {
+        this.idCita = idCita;
+        this.fecha = fecha;
+        this.estado = estado;
+        this.cliente = cliente;
+        this.tipo = tipo;
+        this.motivo = motivo;
+    }
+
+    /**
+     * retorna el id de la cita
+     *
+     * @return identificador de la cita
+    */
+    public int getIdCita() {
+        return idCita;
+    }
+
+    /**
+     * retorna la fecha programada de la cita
+     *
+     * @return fecha de la cita.
+    */
+    public Date getFecha() {
+        return fecha;
+    }
+
+    /**
+     * retorna el estado actual de la cita
+     *
+     * @return estado de la cita
+    */
+    public EstadoCita getEstado() {
+        return estado;
+    }
+
+    /**
+     * retorna el cliente titular de la cita
+     *
+     * @return cliente titular
+    */
+    public Cliente getCliente() {
+        return cliente;
+    }
+
+    /**
+     * retorna el tipo de cita solicitada
+     *
+     * @return tipo de cita
+    */
+    public TipoCita getTipoCita() {
+        return tipo;
+    }
+
+    /**
+     * retorna el motivo de la cita
+     *
+     * @return motivo de la cita
+    */
+    public String getMotivo() {
+        return motivo;
+    }
+
+    /**
+     * cambia la fecha de la cita
+     * 
+     * Solo actualiza el valor si la fecha recibida es válida
+     *
+     * @param fecha nueva fecha de la cita
+    */
+    public void setFecha(Date fecha) {
+        if (fecha != null) {
+            this.fecha = fecha;
+        }
+    }
+
+    /**
+     * cambia el estado de la cita
+     *
+     * @param estado nuevo estado de la cita
+    */
+    public void setEstado(EstadoCita estado) {
+        if (estado != null) {
+            this.estado = estado;
+        }
+    }
+
+    /**
+     * cambia el cliente asociado a la cita
+     *
+     * @param cliente nuevo cliente asociado
+    */
+    public void setCliente(Cliente cliente) {
+        if (cliente != null) {
+            this.cliente = cliente;
+        }
+    }
+
+    /**
+     * cambia el tipo de cita
+     *
+     * @param tipo nuevo tipo de cita
+    */
+    public void setTipoCita(TipoCita tipo) {
+        if (tipo != null) {
+            this.tipo = tipo;
+        }
+    }
+
+    /**
+     * cambia el motivo de la cita
+     *
+     * @param motivo nuevo motivo de la cita
+    */
+    public void setMotivo(String motivo) {
+        if (motivo != null && !motivo.trim().isEmpty()) {
+            this.motivo = motivo.trim();
+        }
+    }
+
+    /**
+     * verifica si la cita se encuentra activa
+     *
+     * @return true si el estado es ACTIVA
+    */
+    public boolean estaActiva() {
+        return estado == EstadoCita.ACTIVA;
+    }
+
+    /**
+     * verifica si la cita se encuentra cancelada
+     *
+     * @return true si el estado es CANCELADA
+    */
+    public boolean estaCancelada() {
+        return estado == EstadoCita.CANCELADA;
+    }
+
+    /**
+     * verifica si la cita se encuentra vencida
+     *
+     * @return true si la fecha de la cita ha pasado
+    */
+    public boolean estaVencida() {
+        return fecha != null && new Date().after(fecha);
+    }
+
+    /**
+     * cambia el estado de la cita a CANCELADA
+    */
+    public void cancelar() {
+        this.estado = EstadoCita.CANCELADA;
+    }
+
+    /**
+     * cambia el estado de la cita a ACTIVA
+    */
+    public void activar() {
+        this.estado = EstadoCita.ACTIVA;
+    }
+
+    /**
+     * verifica si la informacion de la cita es válida
+     *
+     * @return true si tiene fecha, cliente y estado válidos
+    */
+    public boolean esValida() {
+        return fecha != null &&
+            cliente != null &&
+            estado != null;
+    }
+
+    /**
+     * retorna una representación textual de la cita
+     *
+     * @return cadena con información resumida de la cita.
+    */
+    public String toString() {
+        return "Cita{" +
+                "id=" + idCita +
+                ", fecha=" + fecha +
+                ", estado='" + estado + '\'' +
+                ", cliente=" + cliente.getNombre() +
+                '}';
+    }
+}

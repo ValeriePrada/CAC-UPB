@@ -1,0 +1,113 @@
+package co.edu.upb.proyecto.server.security;
+
+import co.edu.upb.proyecto.model.Rol;
+import co.edu.upb.proyecto.model.Usuario;
+
+/**
+ * Clase que va a administrar la sesión actual del sistema
+ * 
+ * Esta clase permite controlar qué usuario ha iniciado sesión
+ * y verificar los permisos según el rol del usuario
+ * 
+ * La información de la sesión es compartida en todo
+ * el sistema, permitiendo identificar cuál usuario
+ * tiene la sesión activa actualmente
+ * 
+ * iniciar sesión
+ * cerrar sesión
+ * obtener el usuario autenticado
+ * verificar si existe una sesión activa
+ * validar si el usuario actual es administrador o cliente
+*/
+public class Sesion {
+
+    /**
+     * Variable estática que almacena el usuario actualmente autenticado
+     * 
+     * Cuando un usuario inicia sesión correctamente, esta variable
+     * guarda la referencia del usuario para que pueda ser utilizada
+     * en cualquier parte del sistema
+     * 
+     * Si no hay sesión activa, el valor será null
+    */
+    private static Usuario usuarioActual;
+
+    /**
+     * Inicia sesión en el sistema
+     * 
+     * Este método guarda el usuario recibido como el usuario activo
+     * de la aplicación
+     * 
+     * 1. Recibe un objeto Usuario autenticado
+     * 2. Asigna ese usuario a la variable usuarioActual
+     * 3. A partir de ese momento el sistema reconoce que existe una sesión activa
+     * 
+     * @param usuario Usuario que inicia sesión
+    */
+    public static void login(Usuario usuario) {
+        usuarioActual = usuario;
+    }
+
+    /**
+     * Cierra la sesión actual del sistema
+     * 1. Elimina el usuario almacenado en usuarioActual
+     * 2. La sesión queda vacía
+     * 3. El sistema vuelve a estado sin autenticación
+     * 
+     * despues de ejecutar este método, ningún usuario estará logueado
+    */
+    public static void logout() {
+        usuarioActual = null;
+    }
+
+    /**
+     * Retorna el usuario actualmente autenticado, permite acceder a la información del usuario
+     * que tiene la sesión activa
+     * 
+     * @return Usuario actualmente logueado o null si no existe sesión
+    */
+    public static Usuario getUsuario() {
+        return usuarioActual;
+    }
+
+    /**
+     * Verifica si existe una sesión activa
+     * 1. Comprueba si la variable usuarioActual contiene un usuario
+     * 2. Si tiene un valor diferente de null, significa que hay un usuario autenticado
+     * 
+     * @return true si hay un usuario logueado, false en caso contrario
+    */
+    public static boolean isLogged() {
+        return usuarioActual != null;
+    }
+
+    /**
+     * Verifica si el usuario actual tiene rol de administrador
+     * 1. Comprueba primero que exista una sesión activa
+     * 2. Valida si el rol del usuario es ADMIN
+     * 3. Retorna el resultado de la validación
+     * 
+     * se usa para restringir acciones exclusivas
+     * de administradores, como gestionar clientes o atender citas
+     * 
+     * @return true si el usuario es administrador, false en caso contrario
+    */
+    public static boolean isAdmin() {
+        return usuarioActual != null &&
+            usuarioActual.getRol() == Rol.ADMIN; 
+    }
+
+    /**
+     * Verifica si el usuario actual tiene rol de cliente
+     * 1. Verifica primero si existe una sesión iniciada
+     * 2. Comprueba si el rol del usuario es CLIENTE
+     * 3. Retorna el resultado de la validación
+     * 
+     * se utiliza para validar operaciones permitidas para clientes
+     * 
+     * @return true si el usuario es cliente, false en caso contrario
+    */
+    public static boolean isCliente() {
+        return isLogged() && usuarioActual.getRol() == Rol.CLIENTE;
+    }
+}

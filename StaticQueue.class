@@ -1,0 +1,37 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Interfaz que define las operaciones principales relacionadas con la gestión de tickets
+*/
+public interface TicketService {
+
+    /**
+     * Muestra la cola actual de turnos
+     * 
+     * @return Texto con los tickets en espera
+    */
+    String verCola();
+
+    /**
+     * Consulta la posición de un ticket con su id
+     * 
+     * @param idTicket Id del ticket
+     * @return Posición del ticket
+    */
+    String verPosicion(int idTicket);
+
+    /**
+     * Atiende el siguiente turno disponible
+     * 
+     * @return Turno que será atendido
+    */
+    Turno atenderSiguienteTurno();
+
+    /**
+     * Obtiene la posición de un ticket en la cola
+     * 
+     * @param ticket Ticket a consultar
+     * @return Posición del ticket
+    */
+    int posicion(Ticket ticket);
+}

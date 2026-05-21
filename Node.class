@@ -1,0 +1,79 @@
+package co.edu.upb.proyecto.util;
+
+import java.io.FileWriter;
+import java.io.FileReader;
+import java.io.BufferedReader;
+import java.io.IOException;
+
+/**
+ * Clase utilitaria encargada de manejar operaciones básicas de archivos
+ * 
+ * Esta clase permite guardar y leer información en archivos de texto,
+ * facilitando la persistencia de datos del sistema como clientes,
+ * usuarios y citas en formato JSON
+ * 
+ * Todos los métodos son estáticos por lo que no es necesario crear
+ * objetos de la clase para utilizarlos
+*/
+public class ArchivoUtil {
+
+    /**
+     * Guarda contenido de texto dentro de un archivo
+     * el método crea o sobrescribe el archivo indicado en la ruta
+     * recibida como parámetro, se utiliza para almacenar
+     * información serializada en formato JSON
+     * 1. Crea un objeto FileWriter asociado a la ruta indicada
+     * 2. Escribe el contenido recibido dentro del archivo
+     * 3. Cierra el flujo y asegura que los datos se guarden
+     * 4. Si ocurre un error de entrada o salida, captura la excepción
+     *    y muestra el error en consola
+     * 
+     * @param ruta Ruta o nombre del archivo donde se guardará la información
+     * @param contenido Texto que se va a almacenar dentro del archivo
+    */
+    public static void guardar(String ruta, String contenido) {
+        try {
+            FileWriter writer = new FileWriter(ruta);
+            writer.write(contenido);
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Lee el contenido completo de un archivo de texto
+     * el método abre el archivo indicado y va leyendo línea por línea
+     * hasta construir solo un String con toda la información almacenada
+     * 1. Inicializa una variable vacía donde se almacenará el contenido
+     * 2. Abre el archivo usando FileReader y BufferedReader
+     * 3. Lee cada línea del archivo mediante un ciclo while
+     * 4. Concatena cada línea al String final
+     * 5. Cierra el archivo para liberar recursos
+     * 6. Si ocurre un error durante la lectura, captura la excepción
+     *    y muestra el error en consola
+     * 7. Retorna el contenido leído
+     * 
+     * 
+     * @param ruta Ruta o nombre del archivo que se va a leer
+     * @return String con todo el contenido almacenado en el archivo
+    */
+    public static String leer(String ruta) {
+        String contenido = "";
+
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(ruta));
+            String linea;
+
+            while ((linea = br.readLine()) != null) {
+                contenido += linea;
+            }
+
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return contenido;
+    }
+}

@@ -1,0 +1,165 @@
+package co.edu.upb.proyecto.model;
+import java.io.Serializable;
+
+/**
+ * Clase base que representa un usuario en el sistema
+ *  
+ * Puede representar administradores y clientes
+*/
+public class Usuario implements Serializable {
+
+    /**
+     * Identificador del usuario
+    */
+    private int id;
+
+    /**
+     * Nombre de usuario para iniciar sesión
+    */
+    private String username;
+
+    /**
+     * Contraseña del usuario
+    */
+    private String password;
+
+    /**
+     * Rol asignado al usuario
+    */
+    private Rol rol;
+
+    /**
+     * Edad del usuario
+    */
+    private int edad;
+
+    /**
+     * Define si el usuario tiene membresía premium
+    */
+    private boolean premium;
+
+    /**
+     * Constructor que inicializa la información del usuario
+     * 
+     * @param id Identificador del usuario
+     * @param username Nombre de usuario
+     * @param password Contraseña
+     * @param rol Rol asignado
+     * @param edad Edad del usuario
+     * @param premium Define si es premium
+    */
+    public Usuario(int id, String username, String password, Rol rol, int edad, boolean premium) {
+        this.id = id;
+        this.username = username;
+        this.password = password;
+        this.rol = rol;
+        this.edad = edad;
+        this.premium = premium;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public Rol getRol() {
+        return rol;
+    }
+
+    public int getEdad() {
+        return edad;
+    }
+
+    public boolean isPremium() {
+        return premium;
+    }
+
+    public void setUsername(String username) {
+        if (username != null && !username.trim().isEmpty()) {
+            this.username = username;
+        }
+    }
+
+    public void setPassword(String password) {
+        if (password != null && password.length() >= 3) {
+            this.password = password;
+        }
+    }
+
+    public void setRol(Rol rol) {
+        if (rol != null) {
+            this.rol = rol;
+        }
+    }
+
+    public void setEdad(int edad) {
+        if (edad > 0) {
+            this.edad = edad;
+        }
+    }
+
+    public void setPremium(boolean premium) {
+        this.premium = premium;
+    }
+
+    /**
+     * Verifica si la contraseña ingresada coincide con la almacenada
+     * 
+     * @param password Contraseña ingresada
+     * @return true si coincide correctamente
+    */
+    public boolean verificarPassword(String password) {
+        return this.password != null && this.password.equals(password);
+    }
+
+    /**
+     * Verifica si el usuario tiene rol ADMIN
+     * 
+     * @return true si es administrador
+    */
+    public boolean esAdmin() {
+        return rol == Rol.ADMIN;
+    }
+
+    /**
+     * Verifica si el usuario tiene rol CLIENTE
+     * 
+     * @return true si es cliente
+    */
+    public boolean esCliente() {
+        return rol == Rol.CLIENTE;
+    }
+
+    /**
+     * Verifica si los datos del usuario cumplen las validaciones
+     * 
+     * Se valida que el username no esté vacío, la contraseña tenga mínimo 3 caracteres, el rol exista
+     * 
+     * @return true si los datos son válidos
+    */
+    public boolean esValido() {
+        return username != null && !username.isEmpty()
+            && password != null && password.length() >= 3
+            && rol != null;
+    }
+
+    /**
+     * Retorna una representación textual del usuario
+     * 
+     * @return Información del usuario
+    */
+    public String toString() {
+        return "Usuario{" +
+                "id=" + id +
+                ", nombre='" + username + '\'' +
+                ", rol=" + rol +
+                '}';
+    }
+}

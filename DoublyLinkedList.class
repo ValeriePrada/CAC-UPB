@@ -1,0 +1,27 @@
+package co.edu.upb.proyecto.model;
+
+/**
+ * Enumeracion que representa los diferentes estados de una cita
+*/
+public enum EstadoCita {
+    
+    /**
+     * La cita está programada y pendiente de atención
+    */
+    ACTIVA,
+
+    /**
+     * La cita fue cancelada por el cliente o por el sistema
+    */
+    CANCELADA,
+
+    /**
+     * La cita ya fue atendida correctamente
+    */
+    FINALIZADA,
+
+    /**
+     * El cliente no asistió a la cita programada
+    */
+    NO_ASISTIDA
+}

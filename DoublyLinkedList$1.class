@@ -1,0 +1,299 @@
+package co.edu.upb.proyecto.model;
+
+import java.io.Serializable;
+import co.edu.upb.proyecto.datastructures.app.priorityqueue.PriorityQueue;
+import co.edu.upb.proyecto.datastructures.model.iterator.Iterator;
+
+/**
+ * esta clase administra la cola de turnos
+ * usando una estructura de cola de prioridad
+ * 
+ * permite almacenar tickets, organizarlos según
+ * su prioridad y gestionar el proceso de atencion
+ * 
+ * implementa Serializable para permitir persistencia
+ * de la información
+*/
+public class ColaTurnos implements Serializable{
+
+    /**
+     * cola de prioridad donde se almacenan los tickets
+     * organizados según su nivel de prioridad
+    */
+    private PriorityQueue<Ticket> cola;
+
+    /**
+     * constructor encargado de crear una nueva cola
+     * de turnos con una capacidad especifica
+     * 
+     * @param capacidad cantidad maxima de tickets
+     *                  que puede almacenar la cola
+    */
+    public ColaTurnos(int capacidad) {
+        cola = new PriorityQueue<>(capacidad);
+    }
+
+    public Ticket get(int index){
+        return cola.get(index);
+    }
+
+    public Iterator<Ticket> iterator() {
+        return cola.iterator();
+    }
+
+    public int size() {
+        return cola.size();
+    }
+
+    public boolean isEmpty() {
+        return cola.size() == 0;
+    }
+
+    public boolean insert(int index, Ticket t){
+        return cola.add(index, t); 
+    }
+
+    public boolean contains(Ticket t){
+        return cola.contains(t);
+    }
+
+    /**
+     * inserta un nuevo ticket dentro de la cola
+     * respetando el orden de prioridad
+     * 
+     * el método recorre la cola para encontrar
+     * la posición correcta donde debe insertarse
+     * el nuevo ticket
+     * 
+     * los tickets con mayor prioridad van
+     * antes que los de menor prioridad
+     * 
+     * - se ignoran tickets nulos
+     * - se ignoran tickets que no estén activos
+     * 
+     * @param nuevo ticket que se desea agregar a la cola
+    */
+    public void encolarCliente(Ticket nuevo) {
+
+        if (nuevo == null) return;
+
+        int index = 0;
+
+        for (int i = 0; i < cola.size(); i++) {
+
+            Ticket actual = cola.get(i);
+
+            if (actual == null) continue;
+            if (actual.getEstado() != EstadoTicket.ACTIVO) continue;
+
+            if (nuevo.getPrioridad().ordinal() < actual.getPrioridad().ordinal()) {
+                break;
+            }
+
+            index++;
+        }
+
+        cola.insert(index, nuevo);
+    }
+
+    /**
+     * extrae y retorna el primer ticket de la cola
+     * 
+     * si la cola esta vacía, retorna null
+     * 
+     * @return ticket extraido de la cola o null
+    */
+    public Ticket desencolar() {
+
+        if (isEmpty()) return null;
+
+        return cola.extract();
+    }
+
+    /**
+     * atiende el siguiente ticket activo disponible de la cola
+     * 
+     * 1. busca el primer ticket activo
+     * 2. cambia su estado a ATENDIDO
+     * 3. limpia los tickets ya atendidos
+     * 4. crea un nuevo objeto Turno
+     * 
+     * @return turno generado para atención o null si no existen tickets activos
+    */
+    public Turno atenderSiguienteTurno() {
+
+        var it = cola.iterator();
+        Ticket ticketAtender = null;
+
+        while (it.hasNext()) {
+            Ticket t = it.next();
+
+            if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+                ticketAtender = t;
+                break;
+            }
+        }
+
+        if (ticketAtender == null) {
+            return null;
+        }
+
+        ticketAtender.setEstado(EstadoTicket.ATENDIDO);
+
+        limpiarAtendidos();
+
+        return new Turno(
+                ticketAtender.getIdTicket(),
+                ticketAtender,
+                null, 
+                EstadoTurno.EN_ATENCION
+        );
+    }
+    
+    /**
+     * retorna el primer ticket en la cola
+     * 
+     * @return primer ticket encontrado o null si la cola está vacia
+    */
+    public Ticket verPrimero() {
+
+        if (isEmpty()) return null;
+
+        var it = cola.iterator();
+
+        while (it.hasNext()) {
+            Ticket t = it.next();
+
+            if (t != null) {
+                return t;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Calcula la posición actual de un ticket en la cola
+     * 
+     * Solo se tienen en cuenta los tickets activos
+     * 
+     * @param t Ticket que se quiere buscar
+     * @return Posición del ticket o -1 si no existe
+    */
+    public int obtenerPosicion(Ticket t) {
+
+        if (t == null) return -1;
+
+        var it = cola.iterator();
+        int pos = 1;
+
+        while (it.hasNext()) {
+            Ticket actual = it.next();
+
+            if (actual.getEstado() != EstadoTicket.ACTIVO) continue;
+
+            if (actual.getIdTicket() == t.getIdTicket()) {
+                return pos;
+            }
+
+            pos++;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Genera una representación textual de todos
+     * los tickets almacenados en la cola
+     * 
+     * Muestra el número del ticket y la prioridad del ticket
+     * 
+     * @return Texto con la información de la cola
+    */
+    public String verCola() {
+
+        if (isEmpty()) return "No hay turnos en espera";
+
+        var it = cola.iterator();
+        StringBuilder resultado = new StringBuilder();
+
+        while (it.hasNext()) {
+            Ticket t = it.next();
+
+            if (t != null) {
+                resultado.append("Turno: ")
+                        .append(t.getIdTicket())
+                        .append(" | Prioridad: ")
+                        .append(t.getPrioridad())
+                        .append("\n");
+            }
+        }
+
+        return resultado.toString();
+    }
+
+    /**
+     * Marca un ticket como ATENDIDO
+     * 
+     * El método recorre la cola hasta encontrar
+     * el ticket usando su id
+     * 
+     * @param ticket Ticket que se desea eliminar
+    */
+    public void eliminar(Ticket ticket) {
+
+        if (ticket == null) return;
+
+        var it = cola.iterator();
+
+        while (it.hasNext()) {
+            Ticket t = it.next();
+
+            if (t != null &&
+                t.getIdTicket() == ticket.getIdTicket()) {
+
+                t.setEstado(EstadoTicket.ATENDIDO);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Elimina de la cola todos los
+     * tickets que ya no estan activos
+     * 
+     * evita almacenar tickets atendidos, cancelados o vencidos
+    */
+    public void limpiarAtendidos() {
+
+        for (int i = 0; i < cola.size(); i++) {
+
+            Ticket t = cola.get(i);
+
+            if (t != null && t.getEstado() != EstadoTicket.ACTIVO) {
+                cola.remove(i);
+                i--; 
+            }
+        }
+    }
+
+    /**
+     * Busca y retorna el primer ticket activo disponible en la cola
+     * 
+     * @return Primer ticket activo encontrado o null si no existen activos
+    */
+    public Ticket verPrimeroActivo(){
+
+        var it = cola.iterator();
+
+        while (it.hasNext()) {
+            Ticket t = it.next();
+
+            if (t != null && t.getEstado() == EstadoTicket.ACTIVO) {
+                return t;
+            }
+        }
+
+        return null;
+    }
+}
